@@ -90,13 +90,21 @@ DISCLAIMER: Always add that you provide information only, not legal advice. For 
 Keep responses concise, warm, practical. Max 4-5 paragraphs or bullet points.`;
 
 // ── API ───────────────────────────────────────────────────────────────────────
+const API_KEY = import.meta.env.VITE_ANTHROPIC_API_KEY || '';
+
 const callAPI = async (messages, sys) => {
   const r = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
-    headers: {'Content-Type':'application/json','anthropic-dangerous-direct-browser-access':'true'},
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': API_KEY,
+      'anthropic-version': '2023-06-01',
+      'anthropic-dangerous-direct-browser-access': 'true',
+    },
     body: JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1200,system:sys,messages})
   });
   const d = await r.json();
+  if(d.error) throw new Error(d.error.message);
   return d.content?.[0]?.text || '';
 };
 
