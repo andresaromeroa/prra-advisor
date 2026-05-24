@@ -34,6 +34,36 @@ const HELLOS = [
 
 const LANGNAMES = {en:'English',es:'Spanish',fr:'French',pt:'Portuguese',ar:'Arabic',hi:'Hindi',pa:'Punjabi',zh:'Mandarin Chinese',uk:'Ukrainian',ru:'Russian',tr:'Turkish',tl:'Filipino/Tagalog',sw:'Swahili',am:'Amharic',fa:'Persian/Farsi',ko:'Korean',ro:'Romanian',bn:'Bengali',ta:'Tamil',so:'Somali',ne:'Nepali',ur:'Urdu',si:'Sinhala',ti:'Tigrinya'};
 
+// ── UI TRANSLATIONS ───────────────────────────────────────────────────────────
+const UI = {
+  hello:{en:'Hello',es:'Hola',fr:'Bonjour',pt:'Olá',ar:'مرحباً',hi:'नमस्ते',pa:'ਸਤਿ ਸ੍ਰੀ ਅਕਾਲ',zh:'你好',uk:'Привіт',ru:'Привет',tr:'Merhaba',tl:'Kamusta',sw:'Habari',am:'ሰላም',fa:'سلام',ko:'안녕하세요',ro:'Bună',bn:'হ্যালো',ta:'வணக்கம்',so:'Salaan',ne:'नमस्कार',ur:'سلام',si:'හෙලෝ',ti:'ሰላም'},
+  firstPRRA:{en:'First PRRA application',es:'Primera solicitud PRRA',fr:'Première demande PRRA',pt:'Primeira solicitação PRRA',ar:'طلب PRRA الأول',hi:'पहला PRRA आवेदन',zh:'第一次PRRA申请',uk:'Перша заявка PRRA',ru:'Первое заявление PRRA',tr:'İlk PRRA başvurusu',ko:'첫 번째 PRRA 신청',ro:'Prima cerere PRRA'},
+  repeatPRRA:{en:'Repeat PRRA application',es:'Segunda solicitud PRRA',fr:'Deuxième demande PRRA',pt:'Segunda solicitação PRRA',ar:'طلب PRRA متكرر',hi:'दोबारा PRRA आवेदन',zh:'重复PRRA申请',uk:'Повторна заявка PRRA',ru:'Повторное заявление PRRA',tr:'Tekrar PRRA başvurusu',ko:'반복 PRRA 신청',ro:'A doua cerere PRRA'},
+  day:{en:'day',es:'día',fr:'jour',pt:'dia',ar:'يوم',hi:'दिन',zh:'天',uk:'день',ru:'день',tr:'gün',tl:'araw',sw:'siku',ko:'일',ro:'zi'},
+  days:{en:'days',es:'días',fr:'jours',pt:'dias',ar:'أيام',hi:'दिन',zh:'天',uk:'днів',ru:'дней',tr:'gün',tl:'araw',sw:'siku',ko:'일',ro:'zile'},
+  deadlinePassed:{en:'DEADLINE PASSED — Contact CBSA immediately',es:'PLAZO VENCIDO — Contacta a la CBSA de inmediato',fr:'DATE LIMITE DÉPASSÉE — Contactez la CBSA immédiatement',pt:'PRAZO EXPIRADO — Contate a CBSA imediatamente',ar:'انتهى الموعد النهائي — اتصل بـ CBSA فوراً',hi:'समयसीमा बीत गई — तुरंत CBSA से संपर्क करें',zh:'截止日期已过 — 立即联系CBSA',uk:'ТЕРМІН ВИЙШОВ — Негайно зверніться до CBSA',ru:'СРОК ИСТЁК — Немедленно свяжитесь с CBSA',tr:'SON TARİH GEÇTİ — CBSA ile hemen iletişime geçin',ko:'기한 초과 — 즉시 CBSA에 연락하세요',ro:'TERMEN DEPĂȘIT — Contactați CBSA imediat'},
+  urgent:{en:'URGENT — Act today',es:'URGENTE — Actúa hoy',fr:'URGENT — Agissez aujourd'hui',pt:'URGENTE — Aja hoje',ar:'عاجل — تصرف اليوم',hi:'जरूरी — आज ही कार्य करें',zh:'紧急 — 今天就行动',uk:'ТЕРМІНОВО — Дійте сьогодні',ru:'СРОЧНО — Действуйте сегодня',tr:'ACİL — Bugün harekete geçin',ko:'긴급 — 오늘 행동하세요',ro:'URGENT — Acționați astăzi'},
+  approaching:{en:'Deadline approaching',es:'Fecha límite próxima',fr:'Date limite proche',pt:'Prazo se aproximando',ar:'الموعد النهائي يقترب',hi:'समयसीमा नजदीक',zh:'截止日期临近',uk:'Термін наближається',ru:'Срок приближается',tr:'Son tarih yaklaşıyor',ko:'기한이 다가오고 있습니다',ro:'Termenul limită se apropie'},
+  deadline:{en:'Deadline',es:'Fecha límite',fr:'Date limite',pt:'Prazo',ar:'الموعد النهائي',hi:'समयसीमा',zh:'截止日期',uk:'Термін',ru:'Срок',tr:'Son tarih',ko:'기한',ro:'Termen'},
+  everyDay:{en:'Every day counts. Submit your application as soon as possible.',es:'Cada día cuenta. Envía tu solicitud lo antes posible.',fr:'Chaque jour compte. Soumettez votre demande dès que possible.',pt:'Cada dia conta. Envie sua solicitação o mais rápido possível.',ar:'كل يوم مهم. قدم طلبك في أقرب وقت ممكن.',hi:'हर दिन मायने रखता है। जल्द से जल्द आवेदन करें।',zh:'每一天都很重要。请尽快提交您的申请。',uk:'Кожен день важливий. Подайте заявку якомога швидше.',ru:'Каждый день важен. Подайте заявку как можно скорее.',tr:'Her gün önemli. Başvurunuzu mümkün olan en kısa sürede gönderin.',ko:'매일이 중요합니다. 가능한 빨리 신청서를 제출하세요.',ro:'Fiecare zi contează. Trimiteți cererea cât mai curând posibil.'},
+  complete:{en:'% complete',es:'% completado',fr:'% complété',pt:'% concluído',ar:'% مكتمل',hi:'% पूर्ण',zh:'% 完成',uk:'% завершено',ru:'% выполнено',tr:'% tamamlandı',ko:'% 완료',ro:'% complet'},
+  startOver:{en:'Start over',es:'Empezar de nuevo',fr:'Recommencer',pt:'Recomeçar',ar:'ابدأ من جديد',hi:'फिर से शुरू करें',zh:'重新开始',uk:'Почати знову',ru:'Начать заново',tr:'Yeniden başla',ko:'다시 시작',ro:'Începe de la capăt'},
+  back:{en:'← Back',es:'← Atrás',fr:'← Retour',pt:'← Voltar',ar:'← رجوع',hi:'← वापस',zh:'← 返回',uk:'← Назад',ru:'← Назад',tr:'← Geri',ko:'← 뒤로',ro:'← Înapoi'},
+  disclaimer:{
+    en:'This tool provides information and process guidance only — not legal or immigration advice. For cases involving serious criminality, security inadmissibility, or other complex situations, consult a registered RCIC or immigration lawyer. Always verify information at',
+    es:'Esta herramienta proporciona solo información y guía del proceso — no asesoría legal ni migratoria. Para casos con criminalidad grave u otras situaciones complejas, consulta un RCIC registrado o un abogado de inmigración. Verifica siempre la información en',
+    fr:"Cet outil fournit uniquement des informations et des conseils de procédure — pas de conseils juridiques ou d'immigration. Pour les cas complexes, consultez un RCIC enregistré ou un avocat en immigration. Vérifiez toujours les informations sur",
+    pt:'Esta ferramenta fornece apenas informações e orientação de processo — não aconselhamento jurídico ou de imigração. Para casos complexos, consulte um RCIC registrado ou advogado de imigração. Sempre verifique as informações em',
+    ar:'تقدم هذه الأداة معلومات وإرشادات فقط — وليس مشورة قانونية. للحالات المعقدة، استشر RCIC مسجلاً أو محامياً. تحقق دائماً من المعلومات على',
+    hi:'यह टूल केवल जानकारी और मार्गदर्शन देता है — कानूनी सलाह नहीं। जटिल मामलों के लिए पंजीकृत RCIC या वकील से सलाह लें। हमेशा जानकारी की जांच करें',
+    zh:'本工具仅提供信息和流程指导，不构成法律建议。复杂情况请咨询注册RCIC或移民律师。始终在以下网址验证信息：',
+    uk:'Цей інструмент надає лише інформацію — не юридичні поради. Для складних справ зверніться до зареєстрованого RCIC або адвоката. Завжди перевіряйте інформацію на',
+    ru:'Этот инструмент предоставляет только информацию — не юридические советы. По сложным делам проконсультируйтесь с RCIC или адвокатом. Всегда проверяйте информацию на',
+    ko:'이 도구는 정보와 절차 안내만 제공하며, 법률 조언이 아닙니다. 복잡한 경우 등록된 RCIC 또는 변호사와 상담하세요. 항상 다음에서 정보를 확인하세요:',
+    ro:'Acest instrument oferă doar informații — nu sfaturi juridice. Pentru cazuri complexe, consultați un RCIC înregistrat sau avocat. Verificați întotdeauna informațiile pe',
+  },
+};
+
 // ── SYSTEM PROMPT ─────────────────────────────────────────────────────────────
 const buildSys = (lang, profile) => `You are a warm, compassionate PRRA (Pre-Removal Risk Assessment) guide helping people in Canada who face removal. Respond in ${LANGNAMES[lang]||'English'}. Use simple, clear language. Avoid jargon.
 
@@ -104,7 +134,8 @@ const Btn = ({children,onClick,disabled,variant='primary',style={}}) => {
 };
 
 // ── COUNTDOWN ─────────────────────────────────────────────────────────────────
-function Countdown({deadline}) {
+function Countdown({deadline, lang}) {
+  const u = (k) => UI[k]?.[lang] || UI[k]?.en || '';
   const n = daysLeft(deadline);
   if(n===null) return null;
   const [bg,bc,tc] = n<=3?['#fee2e2','#fca5a5','var(--red)']:n<=7?['#fef3cd','#fcd34d','var(--amber)']:['var(--tealp)','#86c9b8','var(--teal)'];
@@ -112,12 +143,12 @@ function Countdown({deadline}) {
     <div style={{background:bg,border:`2px solid ${bc}`,borderRadius:14,padding:'18px 22px',marginBottom:18,display:'flex',alignItems:'center',gap:20}}>
       <div style={{textAlign:'center',flexShrink:0}}>
         <div style={{fontFamily:'Playfair Display,serif',fontSize:52,lineHeight:1,color:tc,fontWeight:700}}>{Math.max(0,n)}</div>
-        <div style={{color:tc,fontSize:11,fontWeight:700,textTransform:'uppercase',letterSpacing:'1.5px'}}>{n===1?'day':'days'}</div>
+        <div style={{color:tc,fontSize:11,fontWeight:700,textTransform:'uppercase',letterSpacing:'1.5px'}}>{n===1?u('day'):u('days')}</div>
       </div>
       <div>
-        <div style={{color:tc,fontWeight:700,fontSize:15,marginBottom:3}}>{n<=0?'DEADLINE PASSED — Contact CBSA immediately':n<=3?'URGENT — Act today':n<=7?'Deadline approaching':' Deadline'}</div>
+        <div style={{color:tc,fontWeight:700,fontSize:15,marginBottom:3}}>{n<=0?u('deadlinePassed'):n<=3?u('urgent'):n<=7?u('approaching'):u('deadline')}</div>
         <div style={{color:tc,fontSize:13,opacity:.85}}>{fmtDate(deadline)}</div>
-        {n>0&&n<=15&&<div style={{color:tc,fontSize:12,marginTop:4,opacity:.75}}>Every day counts. Submit your application as soon as possible.</div>}
+        {n>0&&n<=15&&<div style={{color:tc,fontSize:12,marginTop:4,opacity:.75}}>{u('everyDay')}</div>}
       </div>
     </div>
   );
@@ -731,7 +762,7 @@ function Dashboard({lang, profile, checklist, riskLetter, imm5476Data, dispatch,
     return (
       <div style={{minHeight:'100vh',background:'var(--bg)'}}>
         <div style={{background:'var(--navy2)',padding:'14px 20px',display:'flex',alignItems:'center',gap:14,position:'sticky',top:0,zIndex:10}}>
-          <button onClick={()=>setActive(null)} style={{background:'rgba(255,255,255,.12)',border:'none',borderRadius:8,padding:'6px 13px',color:'#fff',fontFamily:'Inter,sans-serif',fontSize:13,fontWeight:600,cursor:'pointer'}}>← Back</button>
+          <button onClick={()=>setActive(null)} style={{background:'rgba(255,255,255,.12)',border:'none',borderRadius:8,padding:'6px 13px',color:'#fff',fontFamily:'Inter,sans-serif',fontSize:13,fontWeight:600,cursor:'pointer'}}>{UI.back?.[lang]||'← Back'}</button>
           <div style={{fontFamily:'Playfair Display,serif',color:'#fff',fontSize:18}}>{phase?.icon} {T(phase)}</div>
         </div>
         <div style={{maxWidth:620,margin:'0 auto',padding:'24px 16px 48px'}}>
@@ -747,15 +778,15 @@ function Dashboard({lang, profile, checklist, riskLetter, imm5476Data, dispatch,
         <div style={{maxWidth:620,margin:'0 auto'}}>
           <div style={{color:'rgba(255,255,255,.5)',fontSize:11,letterSpacing:'2.5px',textTransform:'uppercase',marginBottom:6}}>⚖️ PRRA Guide · Canada</div>
           <h1 style={{fontFamily:'Playfair Display,serif',color:'#fff',fontSize:'clamp(22px,5vw,32px)',marginBottom:4,lineHeight:1.2}}>
-            {profile?.firstName?`Hello, ${profile.firstName}`:'Your PRRA Process'}
+            {profile?.firstName?`${UI.hello?.[lang]||'Hello'}, ${profile.firstName}`:(UI.deadline?.[lang]||'Your PRRA Process')}
           </h1>
           <div style={{color:'rgba(255,255,255,.65)',fontSize:14}}>
-            {profile?.country} · {profile?.isFirstPRRA?'First PRRA application':'Repeat PRRA application'}
+            {profile?.country} · {profile?.isFirstPRRA?(UI.firstPRRA?.[lang]||'First PRRA application'):(UI.repeatPRRA?.[lang]||'Repeat PRRA application')}
           </div>
         </div>
       </div>
       <div style={{maxWidth:620,margin:'0 auto',padding:'20px 16px 48px'}}>
-        <Countdown deadline={profile?.deadline}/>
+        <Countdown deadline={profile?.deadline} lang={lang}/>
         <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(168px,1fr))',gap:11,marginBottom:22}}>
           {PHASES.map(phase=>{
             const pct=progress[phase.id]||0;
@@ -767,15 +798,15 @@ function Dashboard({lang, profile, checklist, riskLetter, imm5476Data, dispatch,
                 {pct>0&&<div style={{position:'absolute',bottom:0,left:0,height:3,width:`${pct}%`,background:'var(--teal)',borderRadius:'0 3px 0 0',transition:'width .5s ease'}}/>}
                 <div style={{fontSize:26,marginBottom:9}}>{phase.icon}</div>
                 <div style={{fontWeight:600,fontSize:13.5,color:'var(--ink)',lineHeight:1.35}}>{T(phase)}</div>
-                {pct>0&&<div style={{fontSize:11,color:'var(--ink3)',marginTop:5}}>{pct}% complete</div>}
+                {pct>0&&<div style={{fontSize:11,color:'var(--ink3)',marginTop:5}}>{pct}{UI.complete?.[lang]||'% complete'}</div>}
               </button>
             );
           })}
         </div>
         <div style={{background:'var(--paper)',borderRadius:12,padding:'15px 18px',border:'1px solid var(--brd)',fontSize:12.5,color:'var(--ink2)',lineHeight:1.7,marginBottom:14}}>
-          <strong style={{color:'var(--ink)'}}>⚖️ Disclaimer:</strong> This tool provides information and process guidance only — not legal or immigration advice. For cases involving serious criminality, security inadmissibility, or other complex situations, consult a registered RCIC or immigration lawyer. Always verify information at <a href="https://canada.ca" target="_blank" rel="noreferrer" style={{color:'var(--navy)'}}>canada.ca</a>.
+          <strong style={{color:'var(--ink)'}}>⚖️</strong> {UI.disclaimer?.[lang]||UI.disclaimer?.en} <a href="https://canada.ca" target="_blank" rel="noreferrer" style={{color:'var(--navy)'}}>canada.ca</a>.
         </div>
-        <button onClick={onReset} style={{background:'none',border:'1px solid var(--brd)',borderRadius:8,padding:'8px 16px',cursor:'pointer',color:'var(--ink3)',fontFamily:'Inter,sans-serif',fontSize:12}}>Start over</button>
+        <button onClick={onReset} style={{background:'none',border:'1px solid var(--brd)',borderRadius:8,padding:'8px 16px',cursor:'pointer',color:'var(--ink3)',fontFamily:'Inter,sans-serif',fontSize:12}}>{UI.startOver?.[lang]||'Start over'}</button>
       </div>
     </div>
   );
