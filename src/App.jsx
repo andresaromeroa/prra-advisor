@@ -399,7 +399,7 @@ const DQ1 = [
 const DQ2 = [
   {id:'criminalRecord',type:'choice',
     badge:{en:'⚖️ Determines your PRRA type',es:'⚖️ Determina el tipo de PRRA',fr:'⚖️ Détermine votre type de PRRA'},
-    q:{en:'Do you have a criminal record — in Canada or abroad?',es:'¿Tienes antecedentes penales — en Canadá o en el extranjero?',fr:'Avez-vous un casier judiciaire — au Canada ou à l'étranger?',pt:'Você tem antecedentes criminais?',ar:'هل لديك سجل جنائي — في كندا أو في الخارج؟',hi:'क्या आपका कोई आपराधिक रिकॉर्ड है?',zh:'您是否有犯罪记录？',uk:'Чи є у вас судимість?',ru:'Есть ли у вас судимость?',ko:'캐나다 또는 해외에서 전과 기록이 있나요?',ro:'Aveți cazier judiciar?'},
+    q:{en:'Do you have a criminal record — in Canada or abroad?',es:'¿Tienes antecedentes penales — en Canadá o en el extranjero?',fr:'Avez-vous un casier judiciaire — au Canada ou à l\'étranger?',pt:'Você tem antecedentes criminais?',ar:'هل لديك سجل جنائي — في كندا أو في الخارج؟',hi:'क्या आपका कोई आपराधिक रिकॉर्ड है?',zh:'您是否有犯罪记录？',uk:'Чи є у вас судимість?',ru:'Есть ли у вас судимость?',ko:'캐나다 또는 해외에서 전과 기록이 있나요?',ro:'Aveți cazier judiciar?'},'
     hint:{en:'Answer honestly — this changes which risks can be evaluated in your PRRA (Full vs. Restricted). Your answer is stored only in your browser.',es:'Responde honestamente — esto determina qué riesgos pueden evaluarse en tu PRRA (Completo vs. Restringido). Tu respuesta solo se guarda en tu navegador.',fr:'Répondez honnêtement — cela détermine quels risques peuvent être évalués dans votre PRRA (Complet vs. Restreint).'},
     opts:[
       {v:'none',e:'✅',l:{en:'No criminal record',es:'Sin antecedentes penales',fr:'Aucun casier judiciaire',pt:'Sem antecedentes criminais',ar:'لا يوجد سجل جنائي',hi:'कोई आपराधिक रिकॉर्ड नहीं',zh:'没有犯罪记录',uk:'Немає судимості',ru:'Нет судимости',ko:'전과 기록 없음',ro:'Fără cazier judiciar'}},
@@ -790,7 +790,7 @@ function RiskLetterBuilder({lang, profile, riskLetter, onChange, apiKey}) {
         <Btn onClick={()=>setShowLetter(false)} variant="secondary" style={{padding:'7px 14px',fontSize:13}}>← Edit</Btn>
       </div>
       <div style={{background:'var(--amberp)',borderRadius:10,padding:'12px 16px',marginBottom:14,fontSize:13,color:'var(--amber)',lineHeight:1.6}}>
-        <strong>⚠️ Before submitting:</strong> Review carefully. Correct any inaccuracies. Add details you didn\'t include in your answers. This letter must reflect your true situation. If any information is wrong, fix it before submitting.
+        <strong>⚠️ Before submitting:</strong> Review carefully. Correct any inaccuracies. Add details you didn\'t include in your answers. This letter must reflect your true situation. If any information is wrong, fix it before submitting.'
       </div>
       <div style={{background:'var(--paper)',border:'1px solid var(--brd)',borderRadius:12,padding:'24px',marginBottom:14,lineHeight:1.8,fontSize:14,color:'var(--ink)',whiteSpace:'pre-wrap',fontFamily:'Georgia,serif',maxHeight:500,overflowY:'auto'}}>{letter}</div>
       <div style={{display:'flex',gap:10}}>
