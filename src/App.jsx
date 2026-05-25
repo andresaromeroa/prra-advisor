@@ -371,7 +371,7 @@ function ResumeScreen({saved, onResume, onRestart}) {
 const DQ1 = [
   {id:'firstName',type:'text',
     q:{en:'What is your first name?',es:'¿Cuál es tu nombre?',fr:'Quel est votre prénom?',pt:'Qual é o seu primeiro nome?',ar:'ما اسمك الأول؟',hi:'आपका पहला नाम क्या है?',zh:'您的名字是什么？',uk:'Як вас звати?',ru:'Как вас зовут?',tr:'Adınız nedir?',tl:'Ano ang iyong pangalan?',sw:'Jina lako ni nani?',ko:'이름이 무엇인가요?',ro:'Prenumele dvs.?'},
-    ph:{en:'First name',es:'Nombre',fr:'Prénom',pt:'Primeiro nome',ar:'الاسم الأول',hi:'पहला नाम',zh:'名字',uk:'Ім'я',ru:'Имя',tr:'Ad',ko:'이름',ro:'Prenume'}},
+    ph:{en:'First name',es:'Nombre',fr:'Prénom',pt:'Primeiro nome',ar:'الاسم الأول',hi:'पहला नाम',zh:'名字',uk:'Ім\'я',ru:'Имя',tr:'Ad',ko:'이름',ro:'Prenume'}},
   {id:'lastName',type:'text',
     q:{en:'And your last name?',es:'¿Y tu apellido?',fr:'Et votre nom de famille?',pt:'E seu sobrenome?',ar:'وما اسم العائلة؟',hi:'और आपका उपनाम?',zh:'您的姓氏？',uk:'Прізвище?',ru:'Фамилия?',tr:'Ve soyadınız?',ko:'성은요?',ro:'Numele de familie?'},
     ph:{en:'Last name',es:'Apellido',fr:'Nom de famille',pt:'Sobrenome',ar:'اسم العائلة',hi:'उपनाम',zh:'姓氏',uk:'Прізвище',ru:'Фамилия',tr:'Soyad',ko:'성',ro:'Nume de familie'}},
@@ -428,8 +428,8 @@ const DQ2 = [
     ]},
   {id:'familyMembers',type:'choice',
     badge:{en:'👨‍👩‍👧 Affects number of forms needed',es:'👨‍👩‍👧 Afecta el número de formularios',fr:'👨‍👩‍👧 Affecte le nombre de formulaires'},
-    q:{en:'Are family members included in your PRRA application?',es:'¿Hay familiares incluidos en tu solicitud PRRA?',fr:'Des membres de la famille sont-ils inclus dans votre demande PRRA?',pt:'Há membros da família incluídos na sua solicitação?',ar:'هل يشمل طلبك PRRA أفراداً من عائلتك؟',hi:'क्या आपके PRRA आवेदन में परिवार के सदस्य शामिल हैं?',zh:'您的PRRA申请中是否包含家庭成员？',uk:'Чи включені члени сім'ї у вашу заявку?',ru:'Включены ли члены семьи в вашу заявку?',ko:'PRRA 신청에 가족 구성원이 포함되어 있나요?',ro:'Sunt incluși membrii familiei în cererea dvs.?'},
-    hint:{en:'Each family member 18 or older needs their own separate IMM 5508 form. Children under 18 can be included on a parent's form.',es:'Cada familiar de 18 años o más necesita su propio formulario IMM 5508 separado. Los menores de 18 años pueden incluirse en el formulario de uno de los padres.',fr:'Chaque membre de la famille de 18 ans ou plus a besoin de son propre formulaire IMM 5508. Les enfants de moins de 18 ans peuvent être inclus dans le formulaire d\'un parent.'},
+    q:{en:'Are family members included in your PRRA application?',es:'¿Hay familiares incluidos en tu solicitud PRRA?',fr:'Des membres de la famille sont-ils inclus dans votre demande PRRA?',pt:'Há membros da família incluídos na sua solicitação?',ar:'هل يشمل طلبك PRRA أفراداً من عائلتك؟',hi:'क्या आपके PRRA आवेदन में परिवार के सदस्य शामिल हैं?',zh:'您的PRRA申请中是否包含家庭成员？',uk:'Чи включені члени сім\'ї у вашу заявку?',ru:'Включены ли члены семьи в вашу заявку?',ko:'PRRA 신청에 가족 구성원이 포함되어 있나요?',ro:'Sunt incluși membrii familiei în cererea dvs.?'},
+    hint:{en:'Each family member 18 or older needs their own separate IMM 5508 form. Children under 18 can be included on a parent\'s form.',es:'Cada familiar de 18 años o más necesita su propio formulario IMM 5508 separado. Los menores de 18 años pueden incluirse en el formulario de uno de los padres.',fr:'Chaque membre de la famille de 18 ans ou plus a besoin de son propre formulaire IMM 5508. Les enfants de moins de 18 ans peuvent être inclus dans le formulaire d\'un parent.'},
     opts:[
       {v:'alone',e:'👤',l:{en:'No — I am applying alone',es:'No — solo aplico yo',fr:'Non — je postule seul(e)',pt:'Não — apenas eu',ar:'لا — أنا أتقدم بمفردي',hi:'नहीं — मैं अकेले आवेदन कर रहा/रही हूँ',zh:'否 — 只有我一人申请',ko:'아니요 — 혼자 신청',ro:'Nu — aplic singur(ă)'}},
       {v:'spouse',e:'👫',l:{en:'Yes — spouse / partner (both adults, need separate forms)',es:'Sí — cónyuge / pareja (ambos adultos, formularios separados)',fr:'Oui — conjoint(e) / partenaire (deux adultes, formulaires séparés)',pt:'Sim — cônjuge/parceiro(a)',ar:'نعم — الزوج / الشريك',hi:'हाँ — पति/पत्नी/साथी',zh:'是 — 配偶/伴侣（两人都是成人，需要单独表格）',ko:'예 — 배우자/파트너',ro:'Da — soț/soție / partener(ă)'}},
@@ -438,7 +438,7 @@ const DQ2 = [
     ]},
   {id:'uci',type:'text',
     q:{en:'Do you have a UCI / Client ID number from IRCC?',es:'¿Tienes un número de UCI / ID de Cliente de IRCC?',fr:'Avez-vous un numéro de référence client (UCI) de l\'IRCC?',pt:'Você tem um número de UCI do IRCC?',ar:'هل لديك رقم UCI / معرف العميل من IRCC؟',hi:'क्या आपके पास IRCC का UCI / क्लाइंट ID नंबर है?',zh:'您有IRCC的UCI/客户ID号码吗？',uk:'У вас є номер UCI від IRCC?',ru:'Есть ли у вас UCI от IRCC?',ko:'IRCC의 UCI/고객 ID 번호가 있나요?',ro:'Aveți un număr UCI / ID client de la IRCC?'},
-    sub:{en:'Found on any previous IRCC letter or decision. Write "none" if you don't have one — it will be assigned after you apply.',es:'Se encuentra en cualquier carta o decisión previa de IRCC. Escribe "ninguno" si no lo tienes — te lo asignarán después.',fr:'Trouvé sur toute lettre ou décision IRCC antérieure. Écrivez "aucun" si vous n\'en avez pas.'},
+    sub:{en:'Found on any previous IRCC letter or decision. Write "none" if you don\'t have one — it will be assigned after you apply.',es:'Se encuentra en cualquier carta o decisión previa de IRCC. Escribe "ninguno" si no lo tienes — te lo asignarán después.',fr:'Trouvé sur toute lettre ou décision IRCC antérieure. Écrivez "aucun" si vous n\'en avez pas.'},
     ph:{en:'e.g. 1234-5678 or "none"',es:'ej. 1234-5678 o "ninguno"',fr:'ex. 1234-5678 ou "aucun"'}},
 ];
 
@@ -591,7 +591,7 @@ function Diagnosis({lang, onDone}) {
                 {lang==='es'?'Continuar →':lang==='fr'?'Continuer →':'Continue →'}
               </Btn>
               {cur.id==='uci'&&<button onClick={()=>next(cur.id,'none')} style={{background:'none',border:'none',color:'var(--ink3)',fontFamily:'Inter,sans-serif',fontSize:13,cursor:'pointer',padding:'4px 0',textDecoration:'underline'}}>
-                {lang==='es'?'No tengo UCI — saltar':lang==='fr'?'Je n\'ai pas de UCI — ignorer':'I don't have a UCI — skip'}
+                {lang==='es'?'No tengo UCI — saltar':lang==='fr'?'Je n\'ai pas de UCI — ignorer':'I don\'t have a UCI — skip'}
               </button>}
             </div>
           )}
@@ -790,7 +790,7 @@ function RiskLetterBuilder({lang, profile, riskLetter, onChange, apiKey}) {
         <Btn onClick={()=>setShowLetter(false)} variant="secondary" style={{padding:'7px 14px',fontSize:13}}>← Edit</Btn>
       </div>
       <div style={{background:'var(--amberp)',borderRadius:10,padding:'12px 16px',marginBottom:14,fontSize:13,color:'var(--amber)',lineHeight:1.6}}>
-        <strong>⚠️ Before submitting:</strong> Review carefully. Correct any inaccuracies. Add details you didn't include in your answers. This letter must reflect your true situation. If any information is wrong, fix it before submitting.
+        <strong>⚠️ Before submitting:</strong> Review carefully. Correct any inaccuracies. Add details you didn\'t include in your answers. This letter must reflect your true situation. If any information is wrong, fix it before submitting.
       </div>
       <div style={{background:'var(--paper)',border:'1px solid var(--brd)',borderRadius:12,padding:'24px',marginBottom:14,lineHeight:1.8,fontSize:14,color:'var(--ink)',whiteSpace:'pre-wrap',fontFamily:'Georgia,serif',maxHeight:500,overflowY:'auto'}}>{letter}</div>
       <div style={{display:'flex',gap:10}}>
@@ -805,14 +805,14 @@ function RiskLetterBuilder({lang, profile, riskLetter, onChange, apiKey}) {
       {profile?.prraType==='restricted'&&(
         <div style={{background:'var(--redp)',borderRadius:12,padding:'14px 18px',marginBottom:14,fontSize:13,color:'var(--red)',lineHeight:1.65,fontWeight:600}}>
           ⚠️ {lang==='es'?'Tu PRRA es RESTRINGIDO (IRPA s.112(3)). Solo puedes argumentar riesgo de tortura, peligro de vida o trato cruel (Art. 97). NO argumentes persecución por raza, religión, etc. (Art. 96) — no aplica a tu caso. Considera consultar un RCIC o abogado.':
-             lang==='fr'?'Votre PRRA est RESTREINT (LIPR art.112(3)). Vous ne pouvez argumenter que le risque de torture, le danger de vie ou traitement cruel (art.97). NE PAS argumenter la persécution (art.96) — ne s'applique pas à votre cas. Consultez un CRIC ou avocat.':
+             lang==='fr'?'Votre PRRA est RESTREINT (LIPR art.112(3)). Vous ne pouvez argumenter que le risque de torture, le danger de vie ou traitement cruel (art.97). NE PAS argumenter la persécution (art.96) — ne s\'applique pas à votre cas. Consultez un CRIC ou avocat.':
              'Your PRRA is RESTRICTED (IRPA s.112(3)). You can only argue risk of torture, life risk, or cruel treatment (s.97). Do NOT argue persecution based on race, religion, etc. (s.96) — it does not apply to your case. Consider consulting an RCIC or immigration lawyer.'}
         </div>
       )}
       {profile?.claimRejected==='yes'&&(
         <div style={{background:'var(--amberp)',borderRadius:12,padding:'14px 18px',marginBottom:14,fontSize:13,color:'var(--amber)',lineHeight:1.65,fontWeight:600}}>
           ⚠️ {lang==='es'?'Tu solicitud de refugio fue rechazada por el IRB. Bajo IRPA s.113(a), SOLO puedes presentar evidencia NUEVA — que surgió después del rechazo o no estaba disponible antes. NO repitas evidencia que ya presentaste.':
-             lang==='fr'?'Votre demande d'asile a été rejetée par la CISR. En vertu de l'art.113(a), vous ne pouvez soumettre QUE de nouvelles preuves — apparues après le rejet ou non disponibles avant. Ne répétez pas les preuves déjà soumises.':
+             lang==='fr'?'Votre demande d\'asile a été rejetée par la CISR. En vertu de l\'art.113(a), vous ne pouvez soumettre QUE de nouvelles preuves — apparues après le rejet ou non disponibles avant. Ne répétez pas les preuves déjà soumises.':
              'Your refugee claim was rejected by the IRB. Under IRPA s.113(a), you can ONLY submit NEW evidence — that arose after the rejection or was not available before. Do NOT repeat evidence you already presented.'}
         </div>
       )}
@@ -1119,7 +1119,7 @@ function OverviewBox({lang, progress, checkDone, checkTotal, riskDone, imm5476Do
   const overallLabel = {
     en: overall===0?'Not started yet — begin with your Document Checklist':
         overall<40?'Getting started — keep going!':
-        overall<80?'Good progress — you're on your way':
+        overall<80?'Good progress — you\'re on your way':
         overall<100?'Almost ready — final review needed':
         'Application ready to submit!',
     es: overall===0?'Aún no has comenzado — empieza con tu Lista de Documentos':
