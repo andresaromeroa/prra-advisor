@@ -235,14 +235,14 @@ const DISCLAIMER_TEXT = {
     title:"Avant de continuer",
     subtitle:"Veuillez lire et accepter ce qui suit",
     body:[
-      {h:"Ce qu'est cet outil",t:"Il s'agit d'un guide informatif gratuit, alimenté par l'intelligence artificielle, pour vous aider à comprendre et préparer votre demande d'évaluation des risques avant renvoi (ERAR). Il vous guide à travers le processus officiel du gouvernement du Canada (IRCC et CBSA), vous aide à organiser vos documents, respecter vos délais et préparer vos observations écrites — en suivant les exigences exactes de la loi canadienne sur l'immigration."},
-      {h:"Ce que cet outil N'est PAS",t:"Cet outil ne fournit pas de conseils juridiques. Il n'est pas un cabinet d'avocats, un consultant réglementé en immigration canadienne (CRIC) ou un avocat en immigration. Il ne vous représente pas devant l'IRCC, l'ASFC, la Commission de l'immigration et du statut de réfugié (CISR) ou tout autre organisme gouvernemental. Il ne garantit aucun résultat, approbation ou protection."},
-      {h:"Qui nous sommes",t:"Nous sommes une société technologique fournissant une plateforme d'information. Nous ne sommes pas des consultants en immigration agréés et nous n'agissons pas en tant que votre représentant dans une procédure d'immigration. Nous utilisons l'intelligence artificielle pour vous aider à accéder aux informations publiques — les mêmes informations publiées par le gouvernement du Canada sur canada.ca."},
-      {h:"Votre responsabilité",t:"Vous êtes seul(e) responsable de la vérification, de la complétion, de la signature et de la soumission de votre propre demande. Vous devez vérifier que toutes les informations sont exactes et à jour. L'IA peut faire des erreurs — vérifiez toujours les détails importants sur canada.ca ou auprès d'un professionnel qualifié."},
+      {h:"Ce qu'est cet outil",t:"Il s\'agit d\'un guide informatif gratuit, alimenté par l\'intelligence artificielle, pour vous aider à comprendre et préparer votre demande d'évaluation des risques avant renvoi (ERAR). Il vous guide à travers le processus officiel du gouvernement du Canada (IRCC et CBSA), vous aide à organiser vos documents, respecter vos délais et préparer vos observations écrites — en suivant les exigences exactes de la loi canadienne sur l\'immigration."},
+      {h:"Ce que cet outil N'est PAS",t:"Cet outil ne fournit pas de conseils juridiques. Il n\'est pas un cabinet d'avocats, un consultant réglementé en immigration canadienne (CRIC) ou un avocat en immigration. Il ne vous représente pas devant l\'IRCC, l\'ASFC, la Commission de l\'immigration et du statut de réfugié (CISR) ou tout autre organisme gouvernemental. Il ne garantit aucun résultat, approbation ou protection."},
+      {h:"Qui nous sommes",t:"Nous sommes une société technologique fournissant une plateforme d\'information. Nous ne sommes pas des consultants en immigration agréés et nous n'agissons pas en tant que votre représentant dans une procédure d\'immigration. Nous utilisons l\'intelligence artificielle pour vous aider à accéder aux informations publiques — les mêmes informations publiées par le gouvernement du Canada sur canada.ca."},
+      {h:"Votre responsabilité",t:"Vous êtes seul(e) responsable de la vérification, de la complétion, de la signature et de la soumission de votre propre demande. Vous devez vérifier que toutes les informations sont exactes et à jour. L'IA peut faire des erreurs — vérifiez toujours les détails importants sur canada.ca ou auprès d\'un professionnel qualifié."},
       {h:"Pour les cas complexes",t:"Si vous êtes interdit(e) de territoire pour criminalité grave, sécurité ou crime organisé; si vous avez un casier judiciaire; ou si votre situation est complexe — nous vous recommandons fortement de consulter un CRIC inscrit sur college-ic.ca ou un avocat en immigration agréé."},
       {h:"Vos données",t:"Les informations que vous saisissez sont stockées localement dans votre navigateur (localStorage). Elles ne sont pas envoyées à un serveur, pas partagées avec des tiers, et pas associées à votre identité. Vous pouvez les supprimer à tout moment en cliquant sur 'Recommencer'."},
     ],
-    accept:"J\'ai lu et compris ce qui précède — Continuer",
+    accept:"J'ai lu et compris ce qui précède — Continuer",
     decline:"Je n\'accepte pas — Quitter",
   },
 };
@@ -399,7 +399,7 @@ const DQ1 = [
 const DQ2 = [
   {id:'criminalRecord',type:'choice',
     badge:{en:'⚖️ Determines your PRRA type',es:'⚖️ Determina el tipo de PRRA',fr:'⚖️ Détermine votre type de PRRA'},
-    q:{en:'Do you have a criminal record — in Canada or abroad?',es:'¿Tienes antecedentes penales — en Canadá o en el extranjero?',fr:'Avez-vous un casier judiciaire — au Canada ou à l\'étranger?',pt:'Você tem antecedentes criminais?',ar:'هل لديك سجل جنائي — في كندا أو في الخارج؟',hi:'क्या आपका कोई आपराधिक रिकॉर्ड है?',zh:'您是否有犯罪记录？',uk:'Чи є у вас судимість?',ru:'Есть ли у вас судимость?',ko:'캐나다 또는 해외에서 전과 기록이 있나요?',ro:'Aveți cazier judiciar?'},'
+    q:{en:'Do you have a criminal record — in Canada or abroad?',es:'¿Tienes antecedentes penales — en Canadá o en el extranjero?',fr:'Avez-vous un casier judiciaire — au Canada ou à l\'étranger?',pt:'Você tem antecedentes criminais?',ar:'هل لديك سجل جنائي — في كندا أو في الخارج؟',hi:'क्या आपका कोई आपराधिक रिकॉर्ड है?',zh:'您是否有犯罪记录？',uk:'Чи є у вас судимість?',ru:'Есть ли у вас судимость?',ko:'캐나다 또는 해외에서 전과 기록이 있나요?',ro:'Aveți cazier judiciar?'},
     hint:{en:'Answer honestly — this changes which risks can be evaluated in your PRRA (Full vs. Restricted). Your answer is stored only in your browser.',es:'Responde honestamente — esto determina qué riesgos pueden evaluarse en tu PRRA (Completo vs. Restringido). Tu respuesta solo se guarda en tu navegador.',fr:'Répondez honnêtement — cela détermine quels risques peuvent être évalués dans votre PRRA (Complet vs. Restreint).'},
     opts:[
       {v:'none',e:'✅',l:{en:'No criminal record',es:'Sin antecedentes penales',fr:'Aucun casier judiciaire',pt:'Sem antecedentes criminais',ar:'لا يوجد سجل جنائي',hi:'कोई आपराधिक रिकॉर्ड नहीं',zh:'没有犯罪记录',uk:'Немає судимості',ru:'Нет судимости',ko:'전과 기록 없음',ro:'Fără cazier judiciar'}},
@@ -657,7 +657,7 @@ const ITEMS = [
     linkLabel:{en:'Download IMM 5476 (PDF)',es:'Descargar IMM 5476 (PDF)',fr:'Télécharger IMM 5476 (PDF)'},
     en:{t:'Form IMM 5476 (if you have a representative)',d:'Use of a Representative form. Needed if ANYONE helps you and acts on your behalf — paid or unpaid, family or friend. Build it in the IMM 5476 section or download the official PDF.',tip:'Even an unpaid friend or family member helping you act on your behalf requires this form.'},
     es:{t:'Formulario IMM 5476 (si tienes representante)',d:'Formulario de Uso de Representante. Necesario si ALGUIEN actúa en tu nombre — pagado o no. Genéralo en la sección IMM 5476 o descarga el PDF oficial.',tip:'Incluso un familiar no pagado que actúe en tu nombre requiere este formulario.'},
-    fr:{t:'Formulaire IMM 5476 (si vous avez un représentant)',d:"Formulaire d'utilisation d'un représentant. Requis si quelqu'un agit en votre nom. Générez-le dans la section IMM 5476 ou téléchargez le PDF officiel.",tip:"Même un ami non rémunéré agissant en votre nom nécessite ce formulaire."}},
+    fr:{t:'Formulaire IMM 5476 (si vous avez un représentant)',d:"Formulaire d'utilisation d\'un représentant. Requis si quelqu\'un agit en votre nom. Générez-le dans la section IMM 5476 ou téléchargez le PDF officiel.",tip:"Même un ami non rémunéré agissant en votre nom nécessite ce formulaire."}},
   {id:'imm5475',cat:'forms',icon:'📋',
     link:'https://www.canada.ca/content/dam/ircc/migration/ircc/english/pdf/kits/forms/imm5475e.pdf',
     linkLabel:{en:'Download IMM 5475 (PDF)',es:'Descargar IMM 5475 (PDF)',fr:'Télécharger IMM 5475 (PDF)'},
@@ -768,7 +768,7 @@ function RiskLetterBuilder({lang, profile, riskLetter, onChange, apiKey}) {
   const generate = async() => {
     setGenerating(true);
     const content = RQS.map((q,i)=>`Q${i+1}: ${q.en}\nAnswer: ${riskLetter[q.id]||'(not provided)'}`).join('\n\n');
-    const prompt = `The following are a PRRA applicant's answers to the 5 official risk questions. Write a complete, professional written submission letter in formal English, addressed "Dear Officer,". The letter should: be well-organized with clear structure, address all 5 questions comprehensively, present the information compellingly but honestly, use formal but clear language, and be formatted for submission to IRCC. Expand thoughtfully on what's provided. End with a professional closing. Do not add false information — only expand on what's given.\n\nApplicant country of origin: ${profile?.country||'unknown'}\n\n${content}`;
+    const prompt = `The following are a PRRA applicant's answers to the 5 official risk questions. Write a complete, professional written submission letter in formal English, addressed "Dear Officer,". The letter should: be well-organized with clear structure, address all 5 questions comprehensively, present the information compellingly but honestly, use formal but clear language, and be formatted for submission to IRCC. Expand thoughtfully on what\'s provided. End with a professional closing. Do not add false information — only expand on what\'s given.\n\nApplicant country of origin: ${profile?.country||'unknown'}\n\n${content}`;
     try {
       const text = await callAPI([{role:'user',content:prompt}], buildSys(lang,profile));
       setLetter(text);
@@ -790,7 +790,7 @@ function RiskLetterBuilder({lang, profile, riskLetter, onChange, apiKey}) {
         <Btn onClick={()=>setShowLetter(false)} variant="secondary" style={{padding:'7px 14px',fontSize:13}}>← Edit</Btn>
       </div>
       <div style={{background:'var(--amberp)',borderRadius:10,padding:'12px 16px',marginBottom:14,fontSize:13,color:'var(--amber)',lineHeight:1.6}}>
-        <strong>⚠️ Before submitting:</strong> Review carefully. Correct any inaccuracies. Add details you didn\'t include in your answers. This letter must reflect your true situation. If any information is wrong, fix it before submitting.'
+        <strong>⚠️ Before submitting:</strong> Review carefully. Correct any inaccuracies. Add details you didn\'t include in your answers. This letter must reflect your true situation. If any information is wrong, fix it before submitting.
       </div>
       <div style={{background:'var(--paper)',border:'1px solid var(--brd)',borderRadius:12,padding:'24px',marginBottom:14,lineHeight:1.8,fontSize:14,color:'var(--ink)',whiteSpace:'pre-wrap',fontFamily:'Georgia,serif',maxHeight:500,overflowY:'auto'}}>{letter}</div>
       <div style={{display:'flex',gap:10}}>
