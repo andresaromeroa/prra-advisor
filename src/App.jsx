@@ -109,7 +109,7 @@ PRRA PROCESS (canada.ca 2025):
 - Documents must be in English or French. Every other language needs certified translation + translator declaration. Family cannot translate.
 - Hearing: Only if credibility issue. Virtual via Microsoft Teams. Miss 2nd hearing = abandoned = deportation.
 - Positive full PRRA = protected person, apply for PR. Positive restricted = removal stayed only. Negative = must leave; Federal Court review possible but must still leave unless stay granted.
-- Cost: PRRA application is FREE.
+- Cost: Submitting the PRRA application to the government (IRCC) is FREE — there is no government filing fee.
 
 COUNTRY CONDITION SOURCES (cite these when users ask about their country):
 - IRB Country Documentation: irb.gc.ca
@@ -148,7 +148,6 @@ const callAPI = async (messages, sys) => {
 
 // ── GLOBAL STYLE ──────────────────────────────────────────────────────────────
 const CSS = `
-@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;700&family=Inter:wght@400;500;600&display=swap');
 *{box-sizing:border-box;margin:0;padding:0}
 html,body{height:100%;background:#f2ede6;font-family:'Inter',sans-serif}
 :root{
@@ -207,7 +206,7 @@ const DISCLAIMER_TEXT = {
     title:"Before you continue",
     subtitle:"Please read and accept the following",
     body:[
-      {h:"What this tool is",t:"This is a free, AI-powered informational guide to help you understand and prepare your Pre-Removal Risk Assessment (PRRA) application. It guides you through the official process as established by the Government of Canada (IRCC and CBSA), helps you organize your documents, meet your deadlines, and prepare your written submissions — following the exact requirements set out in Canadian immigration law."},
+      {h:"What this tool is",t:"This is an AI-powered informational guide to help you understand and prepare your Pre-Removal Risk Assessment (PRRA) application. It guides you through the official process as established by the Government of Canada (IRCC and CBSA), helps you organize your documents, meet your deadlines, and prepare your written submissions — following the exact requirements set out in Canadian immigration law."},
       {h:"What this tool is NOT",t:"This tool does not provide legal advice. It is not a law firm, a Regulated Canadian Immigration Consultant (RCIC), or an immigration lawyer. It does not represent you before IRCC, CBSA, the Immigration and Refugee Board (IRB), or any other government body. It does not guarantee any outcome, approval, or protection."},
       {h:"Who we are",t:"We are a technology company providing an informational platform. We are not licensed immigration consultants and we do not act as your representative in any immigration proceeding. We use artificial intelligence to help you access publicly available information and organize your application materials — the same information published by the Government of Canada at canada.ca."},
       {h:"Your responsibility",t:"You are solely responsible for reviewing, completing, signing, and submitting your own application. You must verify that all information is accurate and up to date. The AI may make errors — always double-check important details at canada.ca or with a qualified professional."},
@@ -221,7 +220,7 @@ const DISCLAIMER_TEXT = {
     title:"Antes de continuar",
     subtitle:"Lee y acepta lo siguiente",
     body:[
-      {h:"Qué es esta herramienta",t:"Es una guía informativa gratuita, impulsada por inteligencia artificial, para ayudarte a entender y preparar tu solicitud de Evaluación de Riesgo Previo a la Remoción (PRRA). Te guía a través del proceso oficial del Gobierno de Canadá (IRCC y CBSA), te ayuda a organizar tus documentos, cumplir tus plazos y preparar tus escritos — siguiendo los requisitos exactos de la ley canadiense de inmigración."},
+      {h:"Qué es esta herramienta",t:"Es una guía informativa impulsada por inteligencia artificial para ayudarte a entender y preparar tu solicitud de Evaluación de Riesgo Previo a la Remoción (PRRA). Te guía a través del proceso oficial del Gobierno de Canadá (IRCC y CBSA), te ayuda a organizar tus documentos, cumplir tus plazos y preparar tus escritos — siguiendo los requisitos exactos de la ley canadiense de inmigración."},
       {h:"Qué NO es esta herramienta",t:"Esta herramienta NO proporciona asesoramiento legal. No es un despacho de abogados, un Consultor Regulado de Inmigración Canadiense (RCIC), ni un abogado de inmigración. No te representa ante IRCC, CBSA, la Junta de Inmigración y Refugiados (IRB), ni ningún organismo gubernamental. No garantiza ningún resultado, aprobación ni protección."},
       {h:"Quiénes somos",t:"Somos una empresa de tecnología que proporciona una plataforma informativa. No somos consultores de inmigración con licencia y no actuamos como tu representante en ningún procedimiento migratorio. Utilizamos inteligencia artificial para ayudarte a acceder a información pública y organizar tus materiales de solicitud — la misma información publicada por el Gobierno de Canadá en canada.ca."},
       {h:"Tu responsabilidad",t:"Eres el/la único/a responsable de revisar, completar, firmar y enviar tu propia solicitud. Debes verificar que toda la información sea correcta y esté actualizada. La IA puede cometer errores — siempre verifica los detalles importantes en canada.ca o con un profesional calificado."},
@@ -235,7 +234,7 @@ const DISCLAIMER_TEXT = {
     title:"Avant de continuer",
     subtitle:"Veuillez lire et accepter ce qui suit",
     body:[
-      {h:"Ce qu'est cet outil",t:"Il s\'agit d\'un guide informatif gratuit, alimenté par l\'intelligence artificielle, pour vous aider à comprendre et préparer votre demande d'évaluation des risques avant renvoi (ERAR). Il vous guide à travers le processus officiel du gouvernement du Canada (IRCC et CBSA), vous aide à organiser vos documents, respecter vos délais et préparer vos observations écrites — en suivant les exigences exactes de la loi canadienne sur l\'immigration."},
+      {h:"Ce qu'est cet outil",t:"Il s\'agit d\'un guide informatif alimenté par l\'intelligence artificielle pour vous aider à comprendre et préparer votre demande d'évaluation des risques avant renvoi (ERAR). Il vous guide à travers le processus officiel du gouvernement du Canada (IRCC et CBSA), vous aide à organiser vos documents, respecter vos délais et préparer vos observations écrites — en suivant les exigences exactes de la loi canadienne sur l\'immigration."},
       {h:"Ce que cet outil N'est PAS",t:"Cet outil ne fournit pas de conseils juridiques. Il n\'est pas un cabinet d'avocats, un consultant réglementé en immigration canadienne (CRIC) ou un avocat en immigration. Il ne vous représente pas devant l\'IRCC, l\'ASFC, la Commission de l\'immigration et du statut de réfugié (CISR) ou tout autre organisme gouvernemental. Il ne garantit aucun résultat, approbation ou protection."},
       {h:"Qui nous sommes",t:"Nous sommes une société technologique fournissant une plateforme d\'information. Nous ne sommes pas des consultants en immigration agréés et nous n'agissons pas en tant que votre représentant dans une procédure d\'immigration. Nous utilisons l\'intelligence artificielle pour vous aider à accéder aux informations publiques — les mêmes informations publiées par le gouvernement du Canada sur canada.ca."},
       {h:"Votre responsabilité",t:"Vous êtes seul(e) responsable de la vérification, de la complétion, de la signature et de la soumission de votre propre demande. Vous devez vérifier que toutes les informations sont exactes et à jour. L'IA peut faire des erreurs — vérifiez toujours les détails importants sur canada.ca ou auprès d\'un professionnel qualifié."},
@@ -313,7 +312,7 @@ function LangScreen({onSelect}) {
       </div>
       <div style={{marginBottom:32,textAlign:'center'}}>
         <div style={{color:'rgba(255,255,255,.9)',fontSize:17,fontWeight:600,marginBottom:4}}>⚖️ PRRA Guide · Canada</div>
-        <div style={{color:'rgba(255,255,255,.4)',fontSize:13}}>Pre-Removal Risk Assessment · Free information tool</div>
+        <div style={{color:'rgba(255,255,255,.4)',fontSize:13}}>Pre-Removal Risk Assessment · Guided information tool</div>
       </div>
       <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(128px,1fr))',gap:7,maxWidth:620,width:'100%',marginBottom:32}}>
         {LANGS.map(({k,f,l})=>(
@@ -593,6 +592,44 @@ function Diagnosis({lang, onDone}) {
               {cur.id==='uci'&&<button onClick={()=>next(cur.id,'none')} style={{background:'none',border:'none',color:'var(--ink3)',fontFamily:'Inter,sans-serif',fontSize:13,cursor:'pointer',padding:'4px 0',textDecoration:'underline'}}>
                 {lang==='es'?'No tengo UCI — saltar':lang==='fr'?'Je n\'ai pas de UCI — ignorer':'I don\'t have a UCI — skip'}
               </button>}
+            </div>
+          )}
+          {cur.type==='date'&&(
+            <div style={{display:'flex',flexDirection:'column',gap:10}}>
+              <div style={{position:'relative'}}>
+                <input
+                  type="date"
+                  value={txt}
+                  onChange={e=>setTxt(e.target.value)}
+                  max={new Date().toISOString().split('T')[0]}
+                  style={{
+                    width:'100%',
+                    border:'2px solid var(--brd)',
+                    borderRadius:10,
+                    padding:'13px 15px',
+                    fontSize:16,
+                    fontFamily:'Inter,sans-serif',
+                    color:'#1c2533',
+                    background:'#ffffff',
+                    outline:'none',
+                    WebkitAppearance:'none',
+                    appearance:'none',
+                    display:'block',
+                    boxSizing:'border-box',
+                    cursor:'pointer',
+                  }}
+                  onFocus={e=>e.target.style.borderColor='var(--navy)'}
+                  onBlur={e=>e.target.style.borderColor='var(--brd)'}
+                />
+                {!txt&&(
+                  <div style={{position:'absolute',top:'50%',transform:'translateY(-50%)',left:15,color:'#9ca3af',fontSize:14,pointerEvents:'none',fontFamily:'Inter,sans-serif'}}>
+                    {lang==='es'?'Selecciona la fecha':lang==='fr'?'Sélectionnez la date':'Select date'}
+                  </div>
+                )}
+              </div>
+              <Btn onClick={()=>txt&&next(cur.id,txt)} disabled={!txt} style={{width:'100%',padding:'13px'}}>
+                {lang==='es'?'Continuar →':lang==='fr'?'Continuer →':'Continue →'}
+              </Btn>
             </div>
           )}
           {cur.type==='choice'&&(
