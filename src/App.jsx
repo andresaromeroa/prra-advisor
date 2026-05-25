@@ -47,6 +47,12 @@ const UI = {
   deadline:{en:'Deadline',es:'Fecha límite',fr:'Date limite',pt:'Prazo',ar:'الموعد النهائي',hi:'समयसीमा',zh:'截止日期',uk:'Термін',ru:'Срок',tr:'Son tarih',ko:'기한',ro:'Termen'},
   everyDay:{en:'Every day counts. Submit your application as soon as possible.',es:'Cada día cuenta. Envía tu solicitud lo antes posible.',fr:'Chaque jour compte. Soumettez votre demande dès que possible.',pt:'Cada dia conta. Envie sua solicitação o mais rápido possível.',ar:'كل يوم مهم. قدم طلبك في أقرب وقت ممكن.',hi:'हर दिन मायने रखता है। जल्द से जल्द आवेदन करें।',zh:'每一天都很重要。请尽快提交您的申请。',uk:'Кожен день важливий. Подайте заявку якомога швидше.',ru:'Каждый день важен. Подайте заявку как можно скорее.',tr:'Her gün önemli. Başvurunuzu mümkün olan en kısa sürede gönderin.',ko:'매일이 중요합니다. 가능한 빨리 신청서를 제출하세요.',ro:'Fiecare zi contează. Trimiteți cererea cât mai curând posibil.'},
   complete:{en:'% complete',es:'% completado',fr:'% complété',pt:'% concluído',ar:'% مكتمل',hi:'% पूर्ण',zh:'% 完成',uk:'% завершено',ru:'% выполнено',tr:'% tamamlandı',ko:'% 완료',ro:'% complet'},
+  welcomeBack:{en:'Welcome back',es:'Bienvenido/a de vuelta',fr:'Bon retour',pt:'Bem-vindo(a) de volta',ar:'مرحباً بعودتك',hi:'वापस स्वागत है',pa:'ਵਾਪਸ ਸੁਆਗਤ ਹੈ',zh:'欢迎回来',uk:'З поверненням',ru:'С возвращением',tr:'Hoş geldiniz',tl:'Maligayang pagbabalik',sw:'Karibu tena',am:'እንኳን ደህና ተመለሱ',fa:'خوش آمدید',ko:'다시 오신 것을 환영합니다',ro:'Bine ai revenit',bn:'ফিরে আসার স্বাগতম',ta:'மீண்டும் வரவேற்கிறோம்',so:'Soo dhawoow dib',ne:'फिर स्वागत छ',ur:'دوبارہ خوش آمدید',si:'නැවත සාදරයෙන් පිළිගනිමු',ti:'ናብ ድሕሪ ምምለስካ ንቕበለካ'},
+  progressSaved:{en:'Your progress is saved.',es:'Tu progreso está guardado.',fr:'Votre progression est sauvegardée.',pt:'Seu progresso está salvo.',ar:'تم حفظ تقدمك.',hi:'आपकी प्रगति सहेजी गई है।',zh:'您的进度已保存。',uk:'Ваш прогрес збережено.',ru:'Ваш прогресс сохранён.',tr:'İlerlemeniz kaydedildi.',tl:'Nai-save ang iyong progreso.',sw:'Maendeleo yako yamehifadhiwa.',ko:'진행 상황이 저장되었습니다.',ro:'Progresul tău este salvat.'},
+  continueBtn:{en:'Continue where I left off →',es:'Continuar donde lo dejé →',fr:'Continuer où j'en étais →',pt:'Continuar de onde parei →',ar:'استمرار من حيث توقفت →',hi:'जहाँ छोड़ा था वहाँ से जारी रखें →',zh:'从上次离开的地方继续 →',uk:'Продовжити з місця зупинки →',ru:'Продолжить с места остановки →',tr:'Kaldığım yerden devam et →',ko:'중단한 곳에서 계속 →',ro:'Continuați de unde am rămas →'},
+  restartBtn:{en:'Start over (new application)',es:'Empezar de nuevo (nueva solicitud)',fr:'Recommencer (nouvelle demande)',pt:'Recomeçar (nova solicitação)',ar:'البدء من جديد (طلب جديد)',hi:'फिर से शुरू करें (नया आवेदन)',zh:'重新开始（新申请）',uk:'Почати знову (нова заявка)',ru:'Начать заново (новое заявление)',tr:'Yeniden başla (yeni başvuru)',ko:'다시 시작 (새 신청)',ro:'Începe de la capăt (cerere nouă)'},
+  daysRemaining:{en:'days remaining',es:'días restantes',fr:'jours restants',pt:'dias restantes',ar:'أيام متبقية',hi:'दिन शेष',zh:'天剩余',uk:'днів залишилось',ru:'дней осталось',tr:'gün kaldı',ko:'일 남음',ro:'zile rămase'},
+  dayRemaining:{en:'day remaining',es:'día restante',fr:'jour restant',pt:'dia restante',ar:'يوم متبق',hi:'दिन शेष',zh:'天剩余',uk:'день залишився',ru:'день остался',tr:'gün kaldı',ko:'일 남음',ro:'zi rămasă'},
   startOver:{en:'Start over',es:'Empezar de nuevo',fr:'Recommencer',pt:'Recomeçar',ar:'ابدأ من جديد',hi:'फिर से शुरू करें',zh:'重新开始',uk:'Почати знову',ru:'Начать заново',tr:'Yeniden başla',ko:'다시 시작',ro:'Începe de la capăt'},
   back:{en:'← Back',es:'← Atrás',fr:'← Retour',pt:'← Voltar',ar:'← رجوع',hi:'← वापस',zh:'← 返回',uk:'← Назад',ru:'← Назад',tr:'← Geri',ko:'← 뒤로',ro:'← Înapoi'},
   disclaimer:{
@@ -65,29 +71,61 @@ const UI = {
 };
 
 // ── SYSTEM PROMPT ─────────────────────────────────────────────────────────────
-const buildSys = (lang, profile) => `You are a warm, compassionate PRRA (Pre-Removal Risk Assessment) guide helping people in Canada who face removal. Respond in ${LANGNAMES[lang]||'English'}. Use simple, clear language. Avoid jargon.
+const buildSys = (lang, profile) => {
+  const l = LANGNAMES[lang] || 'English';
+  const name = (profile?.firstName||'?') + ' ' + (profile?.lastName||'');
+  const prraType = profile?.prraType||'full';
+  const restricted = prraType==='restricted';
+  return `You are a warm, compassionate PRRA (Pre-Removal Risk Assessment) guide helping people in Canada who face removal. Respond ALWAYS in ${l}. Use simple, clear language. Avoid legal jargon. Be empathetic but precise.
 
-USER PROFILE: Name: ${profile?.firstName||'?'} ${profile?.lastName||''} | Country: ${profile?.country||'?'} | First PRRA: ${profile?.isFirstPRRA?'Yes':'No'} | Deadline: ${profile?.deadline||'?'} | Method: ${profile?.notificationMethod||'?'}
+USER PROFILE: Name: ${name} | Country: ${profile?.country||'?'} | UCI: ${profile?.uci||'none'} | First PRRA: ${profile?.isFirstPRRA?'Yes':'No'} | Deadline: ${profile?.deadline||'?'} | Method: ${profile?.notificationMethod||'?'} | Criminal record: ${profile?.criminalRecord||'none'} | Claim rejected by IRB: ${profile?.claimRejected||'no'} | Risk type: ${profile?.riskType||'unknown'} | Family members: ${profile?.familyMembers||'alone'} | PRRA Type: ${restricted?'RESTRICTED (s.112(3)) — only s.97 applies':'FULL (s.112(1)) — both s.96 and s.97 apply'}
 
-PRRA KNOWLEDGE (canada.ca 2025):
-WHAT IS PRRA: Protects people being removed from Canada from persecution, torture, cruel treatment, or risk to life. You can ONLY apply if CBSA notified you.
-DEADLINES: 15 days if form received IN PERSON from CBSA. 22 days if received BY MAIL. Missing the deadline = deportation without review.
-CRITICAL: If you leave Canada while waiting for a decision, application is automatically abandoned and rejected.
-FIRST vs REPEAT: First PRRA = removal order is stayed (paused) automatically. Repeat PRRA = NO automatic stay.
-EVIDENCE: If previous claim was rejected, you can ONLY submit NEW evidence — evidence that arose after the rejection, was not previously accessible, or could not reasonably have been presented before.
-INADMISSIBILITY: If inadmissible for serious criminality (10+ year crime, 2+ year sentence), only torture/life risk/cruel treatment is assessed. NOT persecution.
-12-MONTH WAIT: Must wait 12 months after: negative IRB decision, negative previous PRRA, abandoned/withdrawn claim, or Federal Court refusal. EXCEPTIONS: Iran (active exemption until Dec 2025), Venezuela (various periods), West Bank/Gaza, Afghanistan, and others — check canada.ca for current list.
-FORMS: IMM 5508 = main PRRA application (given by CBSA in person, NOT downloadable). IMM 5476 = Use of Representative form (downloadable PDF, needed if anyone represents you). IMM 5475 = Authority to release info to designated individual.
-THE 5 RISK QUESTIONS (must answer all in written submission): 1) Why at risk if returned? 2) What kind of risk? 3) How does it affect you DIRECTLY and PERSONALLY? 4) Could you escape by moving elsewhere in your country? 5) How does your situation compare to the general population?
-SUBMISSION: Online via Canada Post Connect (recommended — faster, timestamps immediately). OR mail to: IRCC - Humanitarian Migration - Vancouver, #300-800 Burrard Street, Vancouver BC V6Z 0B6. Documents must be in English or French. PDFs max 25MB each.
-TRANSLATIONS: Every document not in English/French needs: certified translation + translator declaration (name, original language, accuracy statement). Family members cannot translate.
-HEARING: Only scheduled if credibility issue needs addressing. Virtual via Microsoft Teams. Must join 15 min early. Missing 2nd hearing = application abandoned = deportation.
-WORK: First PRRA + on-time submission: can apply for work permit. Repeat PRRA: cannot work legally in Canada.
-HEALTH: May qualify for Interim Federal Health Program (IFHP) coverage while waiting.
-DECISION: Positive = become "protected person" → can apply for Permanent Residence. Negative = must leave; can apply to Federal Court for review but must still leave unless court grants a stay.
-COST: Applying for PRRA is FREE. Hiring an RCIC consultant or lawyer costs money — not required.
-DISCLAIMER: Always add that you provide information only, not legal advice. For serious criminality or security inadmissibility, recommend consulting a registered RCIC or immigration lawyer.
-Keep responses concise, warm, practical. Max 4-5 paragraphs or bullet points.`;
+CRITICAL FOR THIS USER: ${restricted?'This is a RESTRICTED PRRA under s.112(3). You CANNOT argue persecution (s.96). Only torture, risk to life, and cruel treatment (s.97) can be assessed. Do NOT guide them to write about persecution grounds. Focus exclusively on s.97 arguments. Strongly recommend consulting an RCIC or immigration lawyer given the complexity.':'This is a FULL PRRA. Both s.96 (persecution) and s.97 (torture/life risk/cruel treatment) can be argued.'} ${profile?.claimRejected==='yes'?'IMPORTANT: Their refugee claim was previously rejected by the IRB. Under IRPA s.113(a), they can ONLY submit NEW evidence — evidence that arose after the rejection or was not reasonably available before. Remind them of this every time they discuss evidence.':''}
+
+CANADIAN LAW — IRPA SECTIONS 96, 97, 112, 113:
+
+IRPA s.96 — CONVENTION REFUGEE (Full PRRA only): Person with well-founded fear of persecution based on: race, religion, nationality, membership in a particular social group, or political opinion — outside their country of nationality and unable/unwilling to seek its protection. Requires nexus between risk and one of these 5 grounds. This is the Geneva Convention definition incorporated into Canadian law.
+
+IRPA s.97 — PERSON IN NEED OF PROTECTION (ALL types of PRRA): Person whose removal would subject them PERSONALLY to: (a) danger of torture (Convention Against Torture Art.1, requires state involvement); OR (b) risk to life or cruel and unusual treatment/punishment IF: risk exists in every part of the country, not faced generally by others, not inherent to lawful sanctions, and person cannot seek country protection.
+
+TWO TYPES OF PRRA (CRITICAL):
+1. FULL PRRA (s.112(1)): Most applicants. Assessed against BOTH s.96 (persecution) AND s.97 (torture/life risk/cruel treatment). Positive result = full refugee protection = can apply for Permanent Residence.
+2. RESTRICTED PRRA (s.112(3)): Applies to persons inadmissible for: security, human/international rights violations, organized criminality, or serious criminality (10+ year max sentence offence OR sentenced to 2+ years in Canada). Assessed ONLY against s.97 — NOT s.96. Positive result = only stays removal order, does NOT confer refugee protection.
+
+IRPA s.113 EVIDENCE RULES: Failed refugee claimants — ONLY new evidence allowed (arose after rejection, not previously available, or could not reasonably have been presented). Hearing only if credibility requires oral testimony.
+
+NON-REFOULEMENT (s.115): Canada cannot return anyone to a country where they face torture, death, or cruel treatment — absolute obligation under international law.
+
+PRRA PROCESS (canada.ca 2025):
+- Deadlines: 15 days (in person notification) or 22 days (by mail). Missing = deportation.
+- 12-month wait after negative IRB/PRRA decision. Exceptions: Iran, Venezuela, West Bank/Gaza, Afghanistan, Myanmar, Belarus — verify current list at canada.ca.
+- First PRRA: automatic stay of removal. Repeat PRRA: NO automatic stay.
+- Leaving Canada while waiting = application abandoned = rejected.
+- Work permit: First PRRA + timely submission = eligible. Repeat PRRA = not eligible.
+- Health: Interim Federal Health Program (IFHP) may apply.
+- Forms: IMM 5508 (given by CBSA, not downloadable), IMM 5476 (representative), IMM 5475 (info release).
+- THE 5 RISK QUESTIONS: (1) Why at risk if returned? (2) What kind of risk? (3) How does it affect you DIRECTLY and PERSONALLY? (4) Internal flight alternative — could you escape by moving within your country? (5) How does your situation compare to the general population?
+- Submit via Canada Post Connect (online, recommended) or mail to IRCC Humanitarian Migration Vancouver, #300-800 Burrard St, Vancouver BC V6Z 0B6.
+- Documents must be in English or French. Every other language needs certified translation + translator declaration. Family cannot translate.
+- Hearing: Only if credibility issue. Virtual via Microsoft Teams. Miss 2nd hearing = abandoned = deportation.
+- Positive full PRRA = protected person, apply for PR. Positive restricted = removal stayed only. Negative = must leave; Federal Court review possible but must still leave unless stay granted.
+- Cost: PRRA application is FREE.
+
+COUNTRY CONDITION SOURCES (cite these when users ask about their country):
+- IRB Country Documentation: irb.gc.ca
+- EUAA country guidance: euaa.europa.eu
+- ACAPS humanitarian analysis: acaps.org
+- SIPRI armed conflict/weapons: sipri.org
+- EIU Democracy Index 2025: eiu.com
+- ECOI country of origin info: ecoi.net
+- Prison Insider (detention conditions): prison-insider.com
+- Amnesty International, Human Rights Watch for persecution evidence
+- UNHCR country guidance
+
+DISCLAIMER: You provide information only — NOT legal advice. For serious criminality, security inadmissibility, or complex cases: recommend RCIC at college-ic.ca or licensed immigration lawyer. Never guarantee outcomes.
+
+Respond in 3-5 paragraphs or bullet points. Be specific to the user profile. Cite canada.ca when uncertain.`;
+};
 
 // ── API ───────────────────────────────────────────────────────────────────────
 const API_KEY = import.meta.env.VITE_ANTHROPIC_API_KEY || '';
@@ -162,6 +200,102 @@ function Countdown({deadline, lang}) {
   );
 }
 
+
+// ── DISCLAIMER SCREEN ─────────────────────────────────────────────────────────
+const DISCLAIMER_TEXT = {
+  en:{
+    title:"Before you continue",
+    subtitle:"Please read and accept the following",
+    body:[
+      {h:"What this tool is",t:"This is a free, AI-powered informational guide to help you understand and prepare your Pre-Removal Risk Assessment (PRRA) application. It guides you through the official process as established by the Government of Canada (IRCC and CBSA), helps you organize your documents, meet your deadlines, and prepare your written submissions — following the exact requirements set out in Canadian immigration law."},
+      {h:"What this tool is NOT",t:"This tool does not provide legal advice. It is not a law firm, a Regulated Canadian Immigration Consultant (RCIC), or an immigration lawyer. It does not represent you before IRCC, CBSA, the Immigration and Refugee Board (IRB), or any other government body. It does not guarantee any outcome, approval, or protection."},
+      {h:"Who we are",t:"We are a technology company providing an informational platform. We are not licensed immigration consultants and we do not act as your representative in any immigration proceeding. We use artificial intelligence to help you access publicly available information and organize your application materials — the same information published by the Government of Canada at canada.ca."},
+      {h:"Your responsibility",t:"You are solely responsible for reviewing, completing, signing, and submitting your own application. You must verify that all information is accurate and up to date. The AI may make errors — always double-check important details at canada.ca or with a qualified professional."},
+      {h:"For complex cases",t:"If you are inadmissible on grounds of serious criminality, security, or organized crime; if you have a criminal record; or if your situation is complex — we strongly recommend consulting a Regulated Canadian Immigration Consultant (RCIC) registered at college-ic.ca, or a licensed immigration lawyer."},
+      {h:"Your data",t:"Information you enter is stored locally in your browser only (localStorage). It is not sent to any server, not shared with third parties, and not associated with your identity. You can delete it at any time by clicking 'Start over'."},
+    ],
+    accept:"I have read and understood the above — Continue",
+    decline:"I do not accept — Exit",
+  },
+  es:{
+    title:"Antes de continuar",
+    subtitle:"Lee y acepta lo siguiente",
+    body:[
+      {h:"Qué es esta herramienta",t:"Es una guía informativa gratuita, impulsada por inteligencia artificial, para ayudarte a entender y preparar tu solicitud de Evaluación de Riesgo Previo a la Remoción (PRRA). Te guía a través del proceso oficial del Gobierno de Canadá (IRCC y CBSA), te ayuda a organizar tus documentos, cumplir tus plazos y preparar tus escritos — siguiendo los requisitos exactos de la ley canadiense de inmigración."},
+      {h:"Qué NO es esta herramienta",t:"Esta herramienta NO proporciona asesoramiento legal. No es un despacho de abogados, un Consultor Regulado de Inmigración Canadiense (RCIC), ni un abogado de inmigración. No te representa ante IRCC, CBSA, la Junta de Inmigración y Refugiados (IRB), ni ningún organismo gubernamental. No garantiza ningún resultado, aprobación ni protección."},
+      {h:"Quiénes somos",t:"Somos una empresa de tecnología que proporciona una plataforma informativa. No somos consultores de inmigración con licencia y no actuamos como tu representante en ningún procedimiento migratorio. Utilizamos inteligencia artificial para ayudarte a acceder a información pública y organizar tus materiales de solicitud — la misma información publicada por el Gobierno de Canadá en canada.ca."},
+      {h:"Tu responsabilidad",t:"Eres el/la único/a responsable de revisar, completar, firmar y enviar tu propia solicitud. Debes verificar que toda la información sea correcta y esté actualizada. La IA puede cometer errores — siempre verifica los detalles importantes en canada.ca o con un profesional calificado."},
+      {h:"Para casos complejos",t:"Si eres inadmisible por criminalidad grave, seguridad o crimen organizado; si tienes antecedentes penales; o si tu situación es compleja — te recomendamos consultar a un RCIC registrado en college-ic.ca o a un abogado de inmigración con licencia."},
+      {h:"Tus datos",t:"La información que ingresas se almacena localmente en tu navegador (localStorage). No se envía a ningún servidor, no se comparte con terceros y no está asociada a tu identidad. Puedes borrarla en cualquier momento haciendo clic en 'Empezar de nuevo'."},
+    ],
+    accept:"He leído y entendido lo anterior — Continuar",
+    decline:"No acepto — Salir",
+  },
+  fr:{
+    title:"Avant de continuer",
+    subtitle:"Veuillez lire et accepter ce qui suit",
+    body:[
+      {h:"Ce qu'est cet outil",t:"Il s'agit d'un guide informatif gratuit, alimenté par l'intelligence artificielle, pour vous aider à comprendre et préparer votre demande d'évaluation des risques avant renvoi (ERAR). Il vous guide à travers le processus officiel du gouvernement du Canada (IRCC et CBSA), vous aide à organiser vos documents, respecter vos délais et préparer vos observations écrites — en suivant les exigences exactes de la loi canadienne sur l'immigration."},
+      {h:"Ce que cet outil N'est PAS",t:"Cet outil ne fournit pas de conseils juridiques. Il n'est pas un cabinet d'avocats, un consultant réglementé en immigration canadienne (CRIC) ou un avocat en immigration. Il ne vous représente pas devant l'IRCC, l'ASFC, la Commission de l'immigration et du statut de réfugié (CISR) ou tout autre organisme gouvernemental. Il ne garantit aucun résultat, approbation ou protection."},
+      {h:"Qui nous sommes",t:"Nous sommes une société technologique fournissant une plateforme d'information. Nous ne sommes pas des consultants en immigration agréés et nous n'agissons pas en tant que votre représentant dans une procédure d'immigration. Nous utilisons l'intelligence artificielle pour vous aider à accéder aux informations publiques — les mêmes informations publiées par le gouvernement du Canada sur canada.ca."},
+      {h:"Votre responsabilité",t:"Vous êtes seul(e) responsable de la vérification, de la complétion, de la signature et de la soumission de votre propre demande. Vous devez vérifier que toutes les informations sont exactes et à jour. L'IA peut faire des erreurs — vérifiez toujours les détails importants sur canada.ca ou auprès d'un professionnel qualifié."},
+      {h:"Pour les cas complexes",t:"Si vous êtes interdit(e) de territoire pour criminalité grave, sécurité ou crime organisé; si vous avez un casier judiciaire; ou si votre situation est complexe — nous vous recommandons fortement de consulter un CRIC inscrit sur college-ic.ca ou un avocat en immigration agréé."},
+      {h:"Vos données",t:"Les informations que vous saisissez sont stockées localement dans votre navigateur (localStorage). Elles ne sont pas envoyées à un serveur, pas partagées avec des tiers, et pas associées à votre identité. Vous pouvez les supprimer à tout moment en cliquant sur 'Recommencer'."},
+    ],
+    accept:"J\'ai lu et compris ce qui précède — Continuer",
+    decline:"Je n\'accepte pas — Quitter",
+  },
+};
+
+function DisclaimerScreen({lang, onAccept, onDecline}) {
+  const [scrolled, setScrolled] = useState(false);
+  const contentRef = useRef(null);
+  const D = DISCLAIMER_TEXT[lang] || DISCLAIMER_TEXT.en;
+
+  const handleScroll = (e) => {
+    const el = e.target;
+    if(el.scrollTop + el.clientHeight >= el.scrollHeight - 40) setScrolled(true);
+  };
+
+  return (
+    <div style={{minHeight:'100vh',background:'linear-gradient(155deg,#0d2137 0%,#1e3a5c 50%,#1a5c52 100%)',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:'24px 16px'}}>
+      <style>{CSS}</style>
+      <div className="fi" style={{background:'var(--paper)',borderRadius:18,maxWidth:640,width:'100%',boxShadow:'0 8px 40px rgba(0,0,0,.3)',overflow:'hidden',display:'flex',flexDirection:'column',maxHeight:'90vh'}}>
+        <div style={{background:'var(--navy2)',padding:'22px 28px',flexShrink:0}}>
+          <div style={{color:'rgba(255,255,255,.5)',fontSize:11,letterSpacing:'2px',textTransform:'uppercase',marginBottom:6}}>⚖️ PRRA Guide · Canada</div>
+          <h2 style={{fontFamily:'Playfair Display,serif',color:'#fff',fontSize:'clamp(19px,3vw,24px)',marginBottom:4}}>{D.title}</h2>
+          <p style={{color:'rgba(255,255,255,.6)',fontSize:13}}>{D.subtitle}</p>
+        </div>
+        <div ref={contentRef} onScroll={handleScroll}
+          style={{flex:1,overflowY:'auto',padding:'24px 28px',background:'var(--paper2)'}}>
+          {D.body.map((s,i)=>(
+            <div key={i} style={{marginBottom:20}}>
+              <div style={{fontWeight:700,color:'var(--navy)',fontSize:14,marginBottom:6,display:'flex',gap:8,alignItems:'center'}}>
+                <span style={{width:22,height:22,borderRadius:'50%',background:'var(--navyl)',color:'var(--navy)',display:'inline-flex',alignItems:'center',justifyContent:'center',fontSize:11,fontWeight:800,flexShrink:0}}>{i+1}</span>
+                {s.h}
+              </div>
+              <p style={{fontSize:13.5,color:'var(--ink2)',lineHeight:1.7,paddingLeft:30}}>{s.t}</p>
+            </div>
+          ))}
+          {!scrolled&&(
+            <div style={{textAlign:'center',color:'var(--ink3)',fontSize:12,marginTop:8,fontStyle:'italic'}}>
+              ↓ Scroll down to read everything before accepting
+            </div>
+          )}
+        </div>
+        <div style={{padding:'18px 28px',borderTop:'1px solid var(--brd)',background:'var(--paper)',flexShrink:0,display:'flex',flexDirection:'column',gap:8}}>
+          <Btn onClick={onAccept} style={{width:'100%',padding:'13px',fontSize:14,opacity:scrolled?1:.6}}>
+            {D.accept}
+          </Btn>
+          <Btn onClick={onDecline} variant="danger" style={{width:'100%',padding:'10px',fontSize:13}}>
+            {D.decline}
+          </Btn>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── LANGUAGE SELECT ───────────────────────────────────────────────────────────
 function LangScreen({onSelect}) {
   const [idx,setIdx] = useState(0);
@@ -198,26 +332,33 @@ function LangScreen({onSelect}) {
 
 // ── RESUME ────────────────────────────────────────────────────────────────────
 function ResumeScreen({saved, onResume, onRestart}) {
+  const lang = saved?.lang || 'en';
+  const u = (k) => UI[k]?.[lang] || UI[k]?.en || '';
   const n = daysLeft(saved?.profile?.deadline);
   const [bg,tc] = n!==null&&n<=3?['var(--redp)','var(--red)']:n!==null&&n<=7?['var(--amberp)','var(--amber)']:['var(--tealp)','var(--teal)'];
+  const name = saved?.profile?.firstName;
   return (
     <div style={{minHeight:'100vh',background:'var(--bg)',display:'flex',alignItems:'center',justifyContent:'center',padding:'24px 20px'}}>
       <style>{CSS}</style>
       <div className="fi" style={{background:'var(--paper)',borderRadius:18,padding:'36px 32px',maxWidth:460,width:'100%',boxShadow:'0 4px 28px rgba(30,58,92,.1)'}}>
         <div style={{textAlign:'center',marginBottom:24}}>
           <div style={{fontSize:44,marginBottom:12}}>📋</div>
-          <h2 style={{fontFamily:'Playfair Display,serif',fontSize:26,color:'var(--ink)',marginBottom:6}}>Welcome back</h2>
-          <p style={{color:'var(--ink2)',fontSize:15}}>{saved?.profile?.firstName?`${saved.profile.firstName}, your`:'Your'} progress is saved.</p>
+          <h2 style={{fontFamily:'Playfair Display,serif',fontSize:26,color:'var(--ink)',marginBottom:6}}>
+            {name ? `${u('hello')}, ${name}` : u('welcomeBack')}
+          </h2>
+          <p style={{color:'var(--ink2)',fontSize:15}}>{u('progressSaved')}</p>
         </div>
         {n!==null&&(
           <div style={{background:bg,borderRadius:11,padding:'14px 18px',textAlign:'center',marginBottom:22}}>
-            <div style={{fontFamily:'Playfair Display,serif',fontSize:32,color:tc,fontWeight:700}}>{Math.max(0,n)} {n===1?'day':'days'} remaining</div>
-            <div style={{color:tc,fontSize:13,opacity:.8}}>Deadline: {fmtDate(saved.profile.deadline)}</div>
+            <div style={{fontFamily:'Playfair Display,serif',fontSize:32,color:tc,fontWeight:700}}>
+              {Math.max(0,n)} {n===1?u('dayRemaining'):u('daysRemaining')}
+            </div>
+            <div style={{color:tc,fontSize:13,opacity:.8}}>{u('deadline')}: {fmtDate(saved.profile.deadline)}</div>
           </div>
         )}
         <div style={{display:'flex',flexDirection:'column',gap:10}}>
-          <Btn onClick={onResume} style={{padding:'14px',fontSize:15,width:'100%'}}>Continue where I left off →</Btn>
-          <Btn onClick={onRestart} variant="secondary" style={{padding:'12px',fontSize:14,width:'100%'}}>Start over (new application)</Btn>
+          <Btn onClick={onResume} style={{padding:'14px',fontSize:15,width:'100%'}}>{u('continueBtn')}</Btn>
+          <Btn onClick={onRestart} variant="secondary" style={{padding:'12px',fontSize:14,width:'100%'}}>{u('restartBtn')}</Btn>
         </div>
       </div>
     </div>
@@ -225,76 +366,233 @@ function ResumeScreen({saved, onResume, onRestart}) {
 }
 
 // ── DIAGNOSIS ─────────────────────────────────────────────────────────────────
-const DQ = [
+
+// Stage 1 — Deadline questions (fast)
+const DQ1 = [
   {id:'firstName',type:'text',
-    q:{en:'What is your first name?',es:'¿Cuál es tu nombre?',fr:'Quel est votre prénom?',pt:'Qual é o seu primeiro nome?',ar:'ما اسمك الأول؟',hi:'आपका पहला नाम क्या है?',zh:'您的名字是什么？',uk:'Як вас звати?',ru:'Как вас зовут?',tr:'Adınız nedir?',tl:'Ano ang iyong pangalan?',sw:'Jina lako ni nani?',ko:'이름이 무엇인가요?',ro:'Care este prenumele dvs.?'},
-    ph:{en:'First name',es:'Nombre',fr:'Prénom',pt:'Primeiro nome',ar:'الاسم الأول',hi:'पहला नाम',zh:'名字',uk:'Ім\'я',ru:'Имя',tr:'Ad',tl:'Pangalan',sw:'Jina',ko:'이름',ro:'Prenume'}},
+    q:{en:'What is your first name?',es:'¿Cuál es tu nombre?',fr:'Quel est votre prénom?',pt:'Qual é o seu primeiro nome?',ar:'ما اسمك الأول؟',hi:'आपका पहला नाम क्या है?',zh:'您的名字是什么？',uk:'Як вас звати?',ru:'Как вас зовут?',tr:'Adınız nedir?',tl:'Ano ang iyong pangalan?',sw:'Jina lako ni nani?',ko:'이름이 무엇인가요?',ro:'Prenumele dvs.?'},
+    ph:{en:'First name',es:'Nombre',fr:'Prénom',pt:'Primeiro nome',ar:'الاسم الأول',hi:'पहला नाम',zh:'名字',uk:'Ім'я',ru:'Имя',tr:'Ad',ko:'이름',ro:'Prenume'}},
   {id:'lastName',type:'text',
-    q:{en:'And your last name?',es:'¿Y tu apellido?',fr:'Et votre nom de famille?',pt:'E seu sobrenome?',ar:'وما اسم العائلة؟',hi:'और आपका उपनाम?',zh:'您的姓氏？',uk:'Прізвище?',ru:'Фамилия?',tr:'Ve soyadınız?',ko:'성은요?',ro:'Și numele de familie?'},
+    q:{en:'And your last name?',es:'¿Y tu apellido?',fr:'Et votre nom de famille?',pt:'E seu sobrenome?',ar:'وما اسم العائلة؟',hi:'और आपका उपनाम?',zh:'您的姓氏？',uk:'Прізвище?',ru:'Фамилия?',tr:'Ve soyadınız?',ko:'성은요?',ro:'Numele de familie?'},
     ph:{en:'Last name',es:'Apellido',fr:'Nom de famille',pt:'Sobrenome',ar:'اسم العائلة',hi:'उपनाम',zh:'姓氏',uk:'Прізвище',ru:'Фамилия',tr:'Soyad',ko:'성',ro:'Nume de familie'}},
   {id:'country',type:'text',
     q:{en:'What country are you originally from?',es:'¿De qué país eres originalmente?',fr:'De quel pays êtes-vous originaire?',pt:'De qual país você é?',ar:'من أي بلد أنت؟',hi:'आप मूल रूप से किस देश से हैं?',zh:'您来自哪个国家？',uk:'З якої ви країни?',ru:'Из какой вы страны?',tr:'Hangi ülkedensiniz?',ko:'어느 나라 출신이세요?',ro:'Din ce țară ești?'},
     ph:{en:'e.g. Mexico, Nigeria, Iran…',es:'ej. México, Nigeria, Irán…',fr:'ex. Mexique, Nigéria, Iran…'}},
   {id:'isFirstPRRA',type:'choice',
-    q:{en:'Is this your first PRRA application?',es:'¿Es esta tu primera solicitud PRRA?',fr:'Est-ce votre première demande PRRA?',pt:'Esta é sua primeira solicitação PRRA?',ar:'هل هذا أول طلب PRRA لك؟',hi:'क्या यह आपका पहला PRRA आवेदन है?',zh:'这是您第一次申请PRRA吗？',uk:'Це ваша перша заявка на PRRA?',ru:'Это ваше первое заявление PRRA?',ko:'첫 번째 PRRA 신청인가요?',ro:'Aceasta este prima ta cerere PRRA?'},
+    q:{en:'Is this your first PRRA application?',es:'¿Es esta tu primera solicitud PRRA?',fr:'Est-ce votre première demande PRRA?',pt:'Esta é sua primeira solicitação PRRA?',ar:'هل هذا أول طلب PRRA لك؟',hi:'क्या यह आपका पहला PRRA आवेदन है?',zh:'这是您第一次申请PRRA吗？',uk:'Це ваша перша заявка на PRRA?',ru:'Это ваше первое заявление PRRA?',ko:'첫 번째 PRRA 신청인가요?',ro:'Prima ta cerere PRRA?'},
     opts:[
       {v:true,e:'✅',l:{en:'Yes — first time',es:'Sí — primera vez',fr:'Oui — première fois',pt:'Sim — primeira vez',ar:'نعم — أول مرة',hi:'हाँ — पहली बार',zh:'是 — 第一次',uk:'Так — вперше',ru:'Да — первый раз',ko:'예 — 처음',ro:'Da — prima oară'}},
-      {v:false,e:'🔄',l:{en:'No — I had a previous PRRA',es:'No — ya tuve una PRRA antes',fr:'Non — j\'ai déjà eu une PRRA',pt:'Não — já tive uma PRRA antes',ar:'لا — كان لدي طلب PRRA سابق',hi:'नहीं — मेरा पहले भी PRRA था',zh:'否 — 我之前有过PRRA',uk:'Ні — у мене вже була PRRA',ru:'Нет — у меня уже было PRRA',ko:'아니요 — 이전에 PRRA가 있었어요',ro:'Nu — am mai avut o PRRA'}}
+      {v:false,e:'🔄',l:{en:'No — I had a previous PRRA',es:'No — ya tuve una PRRA antes',fr:'Non — j'ai déjà eu une PRRA',pt:'Não — já tive uma PRRA antes',ar:'لا — كان لدي طلب PRRA سابق',hi:'नहीं — मेरा पहले भी PRRA था',zh:'否 — 我之前有过PRRA',uk:'Ні — у мене вже була PRRA',ru:'Нет — у меня уже было PRRA',ko:'아니요 — 이전에 PRRA가 있었어요',ro:'Nu — am mai avut o PRRA'}}
     ]},
   {id:'notificationMethod',type:'choice',
     q:{en:'How did you receive the PRRA notification?',es:'¿Cómo recibiste la notificación PRRA?',fr:'Comment avez-vous reçu la notification PRRA?',pt:'Como você recebeu a notificação PRRA?',ar:'كيف تلقيت إشعار PRRA؟',hi:'आपको PRRA अधिसूचना कैसे मिली?',zh:'您如何收到PRRA通知？',uk:'Як ви отримали повідомлення PRRA?',ru:'Как вы получили уведомление PRRA?',ko:'PRRA 통보를 어떻게 받았나요?',ro:'Cum ați primit notificarea PRRA?'},
     opts:[
-      {v:'inperson',e:'🏢',l:{en:'In person from a CBSA officer → 15 days to apply',es:'En persona de un oficial CBSA → 15 días para aplicar',fr:'En personne d\'un agent CBSA → 15 jours pour postuler',pt:'Pessoalmente de um agente CBSA → 15 dias para solicitar',ar:'شخصياً من ضابط CBSA ← 15 يوماً للتقديم',hi:'CBSA अधिकारी से व्यक्तिगत रूप से → 15 दिन',zh:'CBSA官员当面通知 → 15天申请期',uk:'Особисто від офіцера CBSA → 15 днів на подачу',ru:'Лично от офицера CBSA → 15 дней на подачу',ko:'CBSA 직원에게 직접 → 15일',ro:'Personal de la un ofițer CBSA → 15 zile'}},
-      {v:'mail',e:'📬',l:{en:'By mail → 22 days to apply',es:'Por correo postal → 22 días para aplicar',fr:'Par courrier → 22 jours pour postuler',pt:'Por correio → 22 dias para solicitar',ar:'بالبريد ← 22 يوماً للتقديم',hi:'डाक द्वारा → 22 दिन',zh:'邮件通知 → 22天申请期',uk:'Поштою → 22 дні на подачу',ru:'По почте → 22 дня на подачу',ko:'우편으로 → 22일',ro:'Prin poștă → 22 zile'}}
+      {v:'inperson',e:'🏢',l:{en:'In person from a CBSA officer → 15 days to apply',es:'En persona de un oficial CBSA → 15 días para aplicar',fr:'En personne d'un agent CBSA → 15 jours pour postuler',pt:'Pessoalmente de um agente CBSA → 15 dias',ar:'شخصياً من ضابط CBSA — 15 يوماً',hi:'CBSA अधिकारी से व्यक्तिगत → 15 दिन',zh:'CBSA官员当面通知 → 15天',uk:'Особисто від офіцера CBSA → 15 днів',ru:'Лично от офицера CBSA → 15 дней',ko:'CBSA 직원에게 직접 → 15일',ro:'Personal de la un ofițer CBSA → 15 zile'}},
+      {v:'mail',e:'📬',l:{en:'By mail → 22 days to apply',es:'Por correo postal → 22 días para aplicar',fr:'Par courrier → 22 jours pour postuler',pt:'Por correio → 22 dias',ar:'بالبريد — 22 يوماً',hi:'डाक द्वारा → 22 दिन',zh:'邮件通知 → 22天',uk:'Поштою → 22 дні',ru:'По почте → 22 дня',ko:'우편으로 → 22일',ro:'Prin poștă → 22 zile'}}
     ]},
   {id:'notificationDate',type:'date',
-    q:{en:'What date did you receive the notification?',es:'¿Qué fecha recibiste la notificación?',fr:'À quelle date avez-vous reçu la notification?',pt:'Em que data você recebeu a notificação?',ar:'ما التاريخ الذي تلقيت فيه الإشعار؟',hi:'आपको अधिसूचना किस तारीख को मिली?',zh:'您是哪天收到通知的？',uk:'Яку дату ви отримали повідомлення?',ru:'Какого числа вы получили уведомление?',ko:'통보를 받은 날짜가 언제인가요?',ro:'Ce dată ați primit notificarea?'},
-    sub:{en:'This lets us calculate your exact deadline',es:'Esto nos permite calcular tu fecha límite exacta',fr:'Cela nous permet de calculer votre date limite exacte',pt:'Isso nos permite calcular seu prazo exato',ko:'정확한 마감일을 계산하는 데 사용됩니다',ro:'Aceasta ne permite să calculăm data limită exactă'}},
+    q:{en:'What date did you receive the notification?',es:'¿Qué fecha recibiste la notificación?',fr:'À quelle date avez-vous reçu la notification?',pt:'Em que data recebeu a notificação?',ar:'ما التاريخ الذي تلقيت فيه الإشعار؟',hi:'अधिसूचना किस तारीख को मिली?',zh:'哪天收到通知的？',uk:'Яку дату ви отримали повідомлення?',ru:'Какого числа получили уведомление?',ko:'통보를 받은 날짜가 언제인가요?',ro:'Ce dată ați primit notificarea?'},
+    sub:{en:'This calculates your exact deadline',es:'Esto calcula tu fecha límite exacta',fr:'Cela calcule votre date limite exacte',ko:'정확한 마감일을 계산합니다',ro:'Aceasta calculează data limită exactă'}},
 ];
 
+// Stage 2 — Legal profile questions
+const DQ2 = [
+  {id:'criminalRecord',type:'choice',
+    badge:{en:'⚖️ Determines your PRRA type',es:'⚖️ Determina el tipo de PRRA',fr:'⚖️ Détermine votre type de PRRA'},
+    q:{en:'Do you have a criminal record — in Canada or abroad?',es:'¿Tienes antecedentes penales — en Canadá o en el extranjero?',fr:'Avez-vous un casier judiciaire — au Canada ou à l'étranger?',pt:'Você tem antecedentes criminais?',ar:'هل لديك سجل جنائي — في كندا أو في الخارج؟',hi:'क्या आपका कोई आपराधिक रिकॉर्ड है?',zh:'您是否有犯罪记录？',uk:'Чи є у вас судимість?',ru:'Есть ли у вас судимость?',ko:'캐나다 또는 해외에서 전과 기록이 있나요?',ro:'Aveți cazier judiciar?'},
+    hint:{en:'Answer honestly — this changes which risks can be evaluated in your PRRA (Full vs. Restricted). Your answer is stored only in your browser.',es:'Responde honestamente — esto determina qué riesgos pueden evaluarse en tu PRRA (Completo vs. Restringido). Tu respuesta solo se guarda en tu navegador.',fr:'Répondez honnêtement — cela détermine quels risques peuvent être évalués dans votre PRRA (Complet vs. Restreint).'},
+    opts:[
+      {v:'none',e:'✅',l:{en:'No criminal record',es:'Sin antecedentes penales',fr:'Aucun casier judiciaire',pt:'Sem antecedentes criminais',ar:'لا يوجد سجل جنائي',hi:'कोई आपराधिक रिकॉर्ड नहीं',zh:'没有犯罪记录',uk:'Немає судимості',ru:'Нет судимости',ko:'전과 기록 없음',ro:'Fără cazier judiciar'}},
+      {v:'minor',e:'⚠️',l:{en:'Minor offence (misdemeanor, fine, or summary conviction)',es:'Delito menor (infracción, multa, o condena sumaria)',fr:'Infraction mineure (contravention, amende ou déclaration sommaire de culpabilité)',pt:'Infração menor',ar:'جريمة بسيطة',hi:'छोटा अपराध',zh:'轻微违法',ko:'경미한 범죄',ro:'Infracțiune minoră'}},
+      {v:'serious',e:'🔴',l:{en:'Serious offence — sentenced to 2+ years in Canada, or crime with 10+ year max sentence',es:'Delito grave — condenado a 2+ años en Canadá, o delito con pena máxima de 10+ años',fr:'Infraction grave — condamné à 2+ ans au Canada, ou crime passible de 10+ ans',pt:'Infração grave',ar:'جريمة خطيرة',hi:'गंभीर अपराध',zh:'严重犯罪',ko:'중대 범죄',ro:'Infracțiune gravă'}},
+      {v:'unsure',e:'❓',l:{en:'Not sure / prefer not to say',es:'No estoy seguro/a / prefiero no decir',fr:'Je ne suis pas sûr(e) / préfère ne pas répondre',pt:'Não tenho certeza',ar:'غير متأكد / أفضل عدم الإجابة',hi:'निश्चित नहीं',zh:'不确定',ko:'확실하지 않음',ro:'Nu sunt sigur(ă)'}}
+    ]},
+  {id:'claimRejected',type:'choice',
+    badge:{en:'📋 Affects evidence rules',es:'📋 Afecta las reglas de evidencia',fr:'📋 Affecte les règles de preuve'},
+    q:{en:'Was your refugee claim previously rejected by the Immigration and Refugee Board (IRB)?',es:'¿Fue rechazada tu solicitud de refugio previamente por la Junta de Inmigración y Refugiados (IRB)?',fr:'Votre demande d'asile a-t-elle été rejetée par la Commission de l'immigration et du statut de réfugié (CISR)?',pt:'Seu pedido de refúgio foi rejeitado pelo IRB?',ar:'هل رُفض طلب اللجوء الخاص بك من قبل مجلس الهجرة واللاجئين؟',hi:'क्या आपका शरण आवेदन पहले IRB द्वारा अस्वीकार किया गया था?',zh:'您的难民申请是否曾被移民和难民委员会拒绝？',uk:'Чи відхиляло IRB вашу заявку на статус біженця?',ru:'Была ли ваша заявка на убежище отклонена IRB?',ko:'난민 신청이 이전에 IRB에 의해 거부된 적이 있나요?',ro:'Cererea de azil a fost respinsă de IRB?'},
+    hint:{en:'If yes, you can ONLY submit NEW evidence — evidence that arose after the rejection or was not available before. This is a strict legal rule under IRPA s.113(a).',es:'Si sí, SOLO puedes presentar evidencia NUEVA — evidencia que surgió después del rechazo o no estaba disponible antes. Es una regla legal estricta bajo IRPA s.113(a).',fr:'Si oui, vous ne pouvez soumettre QUE de nouvelles preuves — preuves apparues après le rejet ou qui n'étaient pas disponibles auparavant. Règle stricte IRPA art.113(a).'},
+    opts:[
+      {v:'yes',e:'❌',l:{en:'Yes — my refugee claim was rejected by the IRB',es:'Sí — mi solicitud de refugio fue rechazada por el IRB',fr:'Oui — ma demande d'asile a été rejetée par la CISR',pt:'Sim — foi rejeitada pelo IRB',ar:'نعم — رُفض طلبي من قبل IRB',hi:'हाँ — मेरी शरण याचिका IRB द्वारा अस्वीकार की गई',zh:'是 — 我的难民申请被IRB拒绝',ko:'예 — 난민 신청이 IRB에 의해 거부됨',ro:'Da — cererea mea a fost respinsă de IRB'}},
+      {v:'no',e:'✅',l:{en:'No — I never had a refugee claim, or it was withdrawn / abandoned',es:'No — nunca tuve solicitud de refugio, o fue retirada / abandonada',fr:'Non — je n'ai jamais eu de demande d'asile, ou elle a été retirée / abandonnée',pt:'Não — nunca tive um pedido de refúgio',ar:'لا — لم يسبق لي تقديم طلب لجوء',hi:'नहीं — मैंने कभी शरण आवेदन नहीं किया',zh:'否 — 我从未提交难民申请',ko:'아니요 — 난민 신청을 한 적 없음',ro:'Nu — nu am avut niciodată o cerere de azil'}},
+      {v:'unsure',e:'❓',l:{en:'Not sure',es:'No estoy seguro/a',fr:'Je ne suis pas sûr(e)',pt:'Não tenho certeza',ar:'غير متأكد',hi:'निश्चित नहीं',zh:'不确定',ko:'확실하지 않음',ro:'Nu sunt sigur(ă)'}}
+    ]},
+  {id:'riskType',type:'choice',
+    badge:{en:'✍️ Shapes your risk letter strategy',es:'✍️ Define la estrategia de tu carta',fr:'✍️ Oriente la stratégie de votre lettre'},
+    q:{en:'What best describes the nature of the risk you face if returned to your country?',es:'¿Qué describe mejor la naturaleza del riesgo que enfrentarías si te deportan a tu país?',fr:'Qu'est-ce qui décrit le mieux la nature du risque que vous courrez si vous êtes renvoyé(e)?',pt:'O que melhor descreve o risco que você enfrentaria?',ar:'ما الذي يصف بشكل أفضل طبيعة الخطر الذي تواجهه؟',hi:'आप जिस जोखिम का सामना करते हैं उसकी प्रकृति क्या है?',zh:'回国后您面临的风险性质是什么？',uk:'Яка природа ризику, якому ви піддаєтеся?',ru:'Какова природа риска, которому вы подвергаетесь?',ko:'귀국 시 직면하는 위험의 성격은 무엇인가요?',ro:'Ce descrie cel mai bine riscul pe care îl înfruntați?'},
+    hint:{en:'This is not final — it helps us tailor your risk letter. You can address multiple risks in your submission.',es:'Esto no es definitivo — nos ayuda a personalizar tu carta de riesgos. Puedes abordar múltiples riesgos en tu escrito.',fr:'Ce n'est pas définitif — cela nous aide à adapter votre lettre. Vous pouvez aborder plusieurs risques.'},
+    opts:[
+      {v:'persecution',e:'🎯',l:{en:'Persecution — targeted because of race, religion, nationality, political opinion, or membership in a social group (s.96)',es:'Persecución — soy blanco/a por raza, religión, nacionalidad, opinión política o pertenencia a un grupo social (art.96)',fr:'Persécution — ciblé(e) en raison de la race, religion, nationalité, opinion politique ou groupe social (art.96)',pt:'Perseguição por raça, religião, opinião política ou grupo social',ar:'اضطهاد — مستهدف بسبب العرق أو الدين أو الجنسية أو الرأي السياسي',hi:'उत्पीड़न — जाति, धर्म, राजनीतिक राय के कारण',zh:'迫害 — 因种族、宗教、政治观点等原因被针对',ko:'박해 — 인종, 종교, 국적, 정치적 의견으로 인한 박해 (s.96)',ro:'Persecuție — vizat din cauza rasei, religiei, opiniei politice (art.96)'}},
+      {v:'torture',e:'⚠️',l:{en:'Torture or risk to life — physical danger, death threats, risk of cruel treatment (s.97)',es:'Tortura o riesgo de vida — peligro físico, amenazas de muerte, riesgo de trato cruel (art.97)',fr:'Torture ou risque de vie — danger physique, menaces de mort, traitement cruel (art.97)',pt:'Tortura ou risco de vida — perigo físico, ameaças de morte',ar:'التعذيب أو خطر الحياة — خطر جسدي أو تهديد بالموت',hi:'यातना या जीवन का खतरा — शारीरिक खतरा',zh:'酷刑或生命风险 — 人身危险、死亡威胁 (s.97)',ko:'고문 또는 생명 위험 — 신체적 위험, 사망 위협 (s.97)',ro:'Tortură sau risc de viață — pericol fizic, amenințări (art.97)'}},
+      {v:'both',e:'🔴',l:{en:'Both — persecution AND physical danger / torture',es:'Ambos — persecución Y peligro físico / tortura',fr:'Les deux — persécution ET danger physique / torture',pt:'Ambos — perseguição e perigo físico',ar:'كلاهما — الاضطهاد والخطر الجسدي',hi:'दोनों — उत्पीड़न और शारीरिक खतरा',zh:'两者都有 — 迫害和人身危险',ko:'둘 다 — 박해와 신체적 위험 모두',ro:'Ambele — persecuție ȘI pericol fizic'}},
+      {v:'unsure',e:'❓',l:{en:'Not sure — I need help understanding what applies to me',es:'No estoy seguro/a — necesito ayuda para entender qué aplica en mi caso',fr:'Je ne suis pas sûr(e) — j'ai besoin d'aide pour comprendre ce qui s'applique',pt:'Não tenho certeza',ar:'غير متأكد — أحتاج مساعدة',hi:'निश्चित नहीं — मुझे समझने में मदद चाहिए',zh:'不确定 — 需要帮助了解适用情况',ko:'확실하지 않음 — 이해하는 데 도움이 필요함',ro:'Nu sunt sigur(ă) — am nevoie de ajutor'}}
+    ]},
+  {id:'familyMembers',type:'choice',
+    badge:{en:'👨‍👩‍👧 Affects number of forms needed',es:'👨‍👩‍👧 Afecta el número de formularios',fr:'👨‍👩‍👧 Affecte le nombre de formulaires'},
+    q:{en:'Are family members included in your PRRA application?',es:'¿Hay familiares incluidos en tu solicitud PRRA?',fr:'Des membres de la famille sont-ils inclus dans votre demande PRRA?',pt:'Há membros da família incluídos na sua solicitação?',ar:'هل يشمل طلبك PRRA أفراداً من عائلتك؟',hi:'क्या आपके PRRA आवेदन में परिवार के सदस्य शामिल हैं?',zh:'您的PRRA申请中是否包含家庭成员？',uk:'Чи включені члени сім'ї у вашу заявку?',ru:'Включены ли члены семьи в вашу заявку?',ko:'PRRA 신청에 가족 구성원이 포함되어 있나요?',ro:'Sunt incluși membrii familiei în cererea dvs.?'},
+    hint:{en:'Each family member 18 or older needs their own separate IMM 5508 form. Children under 18 can be included on a parent's form.',es:'Cada familiar de 18 años o más necesita su propio formulario IMM 5508 separado. Los menores de 18 años pueden incluirse en el formulario de uno de los padres.',fr:'Chaque membre de la famille de 18 ans ou plus a besoin de son propre formulaire IMM 5508. Les enfants de moins de 18 ans peuvent être inclus dans le formulaire d'un parent.'},
+    opts:[
+      {v:'alone',e:'👤',l:{en:'No — I am applying alone',es:'No — solo aplico yo',fr:'Non — je postule seul(e)',pt:'Não — apenas eu',ar:'لا — أنا أتقدم بمفردي',hi:'नहीं — मैं अकेले आवेदन कर रहा/रही हूँ',zh:'否 — 只有我一人申请',ko:'아니요 — 혼자 신청',ro:'Nu — aplic singur(ă)'}},
+      {v:'spouse',e:'👫',l:{en:'Yes — spouse / partner (both adults, need separate forms)',es:'Sí — cónyuge / pareja (ambos adultos, formularios separados)',fr:'Oui — conjoint(e) / partenaire (deux adultes, formulaires séparés)',pt:'Sim — cônjuge/parceiro(a)',ar:'نعم — الزوج / الشريك',hi:'हाँ — पति/पत्नी/साथी',zh:'是 — 配偶/伴侣（两人都是成人，需要单独表格）',ko:'예 — 배우자/파트너',ro:'Da — soț/soție / partener(ă)'}},
+      {v:'children',e:'👨‍👩‍👧',l:{en:'Yes — children under 18 (can be included in my form)',es:'Sí — hijos menores de 18 (pueden incluirse en mi formulario)',fr:'Oui — enfants de moins de 18 ans (peuvent être inclus dans mon formulaire)',pt:'Sim — filhos menores de 18',ar:'نعم — أطفال دون 18 عاماً',hi:'हाँ — 18 वर्ष से कम बच्चे',zh:'是 — 18岁以下子女（可在我的表格上包含）',ko:'예 — 18세 미만 자녀',ro:'Da — copii sub 18 ani'}},
+      {v:'family',e:'👨‍👩‍👧‍👦',l:{en:'Yes — spouse AND children, or adult children 18+',es:'Sí — cónyuge E hijos, o hijos adultos de 18+',fr:'Oui — conjoint(e) ET enfants, ou enfants adultes 18+',pt:'Sim — cônjuge e filhos, ou filhos adultos',ar:'نعم — الزوج والأطفال أو أطفال بالغون',hi:'हाँ — पति/पत्नी और बच्चे, या 18+ वयस्क बच्चे',zh:'是 — 配偶和子女，或18岁以上成年子女',ko:'예 — 배우자와 자녀, 또는 성인 자녀 18+',ro:'Da — soț/soție ȘI copii, sau copii adulți 18+'}}
+    ]},
+  {id:'uci',type:'text',
+    q:{en:'Do you have a UCI / Client ID number from IRCC?',es:'¿Tienes un número de UCI / ID de Cliente de IRCC?',fr:'Avez-vous un numéro de référence client (UCI) de l'IRCC?',pt:'Você tem um número de UCI do IRCC?',ar:'هل لديك رقم UCI / معرف العميل من IRCC؟',hi:'क्या आपके पास IRCC का UCI / क्लाइंट ID नंबर है?',zh:'您有IRCC的UCI/客户ID号码吗？',uk:'У вас є номер UCI від IRCC?',ru:'Есть ли у вас UCI от IRCC?',ko:'IRCC의 UCI/고객 ID 번호가 있나요?',ro:'Aveți un număr UCI / ID client de la IRCC?'},
+    sub:{en:'Found on any previous IRCC letter or decision. Write "none" if you don't have one — it will be assigned after you apply.',es:'Se encuentra en cualquier carta o decisión previa de IRCC. Escribe "ninguno" si no lo tienes — te lo asignarán después.',fr:'Trouvé sur toute lettre ou décision IRCC antérieure. Écrivez "aucun" si vous n'en avez pas.'},
+    ph:{en:'e.g. 1234-5678 or "none"',es:'ej. 1234-5678 o "ninguno"',fr:'ex. 1234-5678 ou "aucun"'}},
+];
+
+// Which type of PRRA (derived from profile)
+const getPRRAType = (profile) => {
+  if(!profile) return 'full';
+  if(profile.criminalRecord === 'serious') return 'restricted';
+  return 'full';
+};
+
+// Alert banner shown between Stage 1 and Stage 2
+function StageBridge({lang, profile}) {
+  const deadline = profile?.deadline;
+  const n = daysLeft(deadline);
+  const isRestricted = getPRRAType(profile) === 'restricted';
+  const labels = {
+    stage2title:{en:'Step 2 of 2 — Legal Profile',es:'Paso 2 de 2 — Perfil Legal',fr:'Étape 2 sur 2 — Profil juridique'},
+    stage2sub:{en:'5 quick questions that determine exactly how to guide your application.',es:'5 preguntas rápidas que determinan exactamente cómo guiar tu solicitud.',fr:'5 questions rapides qui déterminent exactement comment guider votre demande.'},
+    deadlineSet:{en:'✓ Deadline calculated',es:'✓ Fecha límite calculada',fr:'✓ Date limite calculée'},
+  };
+  const T = (obj) => obj?.[lang]||obj?.en||'';
+  return (
+    <div style={{minHeight:'100vh',background:'var(--bg)',display:'flex',alignItems:'center',justifyContent:'center',padding:'24px 16px'}}>
+      <div className="fi" style={{maxWidth:520,width:'100%'}}>
+        <div style={{background:'var(--tealp)',border:'2px solid #6bbdad',borderRadius:14,padding:'16px 20px',marginBottom:16,display:'flex',alignItems:'center',gap:14}}>
+          <div style={{fontSize:32}}>✅</div>
+          <div>
+            <div style={{fontWeight:700,color:'var(--teal)',fontSize:15}}>{T(labels.deadlineSet)}: {fmtDate(deadline)}</div>
+            <div style={{color:'var(--teal)',fontSize:13,opacity:.85}}>
+              {n!==null?`${Math.max(0,n)} ${lang==='es'?'días restantes':lang==='fr'?'jours restants':'days remaining'}`:''}
+            </div>
+          </div>
+        </div>
+        <div style={{background:'var(--paper)',borderRadius:14,padding:'28px 24px',boxShadow:'0 2px 24px rgba(30,58,92,.08)'}}>
+          <div style={{fontSize:11,color:'var(--ink3)',fontWeight:700,letterSpacing:'1.5px',textTransform:'uppercase',marginBottom:8}}>⚖️ PRRA Guide</div>
+          <h2 style={{fontFamily:'Playfair Display,serif',fontSize:24,color:'var(--ink)',marginBottom:8}}>{T(labels.stage2title)}</h2>
+          <p style={{color:'var(--ink2)',fontSize:14,lineHeight:1.65,marginBottom:24}}>{T(labels.stage2sub)}</p>
+          <Btn onClick={()=>{}} style={{width:'100%',padding:'14px',fontSize:15}}>
+            {lang==='es'?'Continuar →':lang==='fr'?'Continuer →':'Continue →'}
+          </Btn>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function Diagnosis({lang, onDone}) {
+  const [stage, setStage] = useState(1); // 1 = deadline, 'bridge', 2 = legal profile
   const [idx,setIdx] = useState(0);
   const [ans,setAns] = useState({});
   const [txt,setTxt] = useState('');
   const [k,setK] = useState(0);
-  const cur = DQ[idx];
   const T = useCallback((obj) => obj?.[lang]||obj?.en||'', [lang]);
+
+  const currentQS = stage===1 ? DQ1 : DQ2;
+  const totalQ = DQ1.length + DQ2.length;
+  const globalIdx = stage===1 ? idx : DQ1.length + idx;
+  const pct = Math.round((globalIdx / totalQ) * 100);
+  const cur = stage==='bridge' ? null : currentQS[idx];
+
   const next = (id, val) => {
     const na = {...ans,[id]:val};
     setAns(na); setTxt('');
-    if(idx+1<DQ.length){setTimeout(()=>{setIdx(i=>i+1);setK(k=>k+1);},160);}
-    else{
-      const days = na.notificationMethod==='inperson'?15:22;
-      const deadline = addDays(na.notificationDate, days);
-      onDone({...na, deadline});
+    if(stage===1){
+      if(idx+1<DQ1.length){setTimeout(()=>{setIdx(i=>i+1);setK(k=>k+1);},160);}
+      else{
+        // calculate deadline, move to bridge
+        const days = na.notificationMethod==='inperson'?15:22;
+        const deadline = addDays(na.notificationDate, days);
+        setAns({...na,deadline});
+        setStage('bridge');
+      }
+    } else {
+      if(idx+1<DQ2.length){setTimeout(()=>{setIdx(i=>i+1);setK(k=>k+1);},160);}
+      else{
+        // derive PRRA type and finalise
+        const prraType = na.criminalRecord==='serious'?'restricted':'full';
+        const newEvOnly = na.claimRejected==='yes';
+        onDone({...na, prraType, newEvOnly});
+      }
     }
   };
-  const pct = Math.round((idx/DQ.length)*100);
+
+  // Bridge screen
+  if(stage==='bridge'){
+    const deadline = ans.deadline;
+    const n = daysLeft(deadline);
+    return (
+      <div style={{minHeight:'100vh',background:'var(--bg)',display:'flex',alignItems:'center',justifyContent:'center',padding:'24px 16px'}}>
+        <div className="fi" style={{maxWidth:520,width:'100%'}}>
+          <div style={{background:'var(--tealp)',border:'2px solid #6bbdad',borderRadius:14,padding:'16px 20px',marginBottom:16,display:'flex',alignItems:'center',gap:14}}>
+            <div style={{fontSize:32}}>✅</div>
+            <div>
+              <div style={{fontWeight:700,color:'var(--teal)',fontSize:15}}>
+                {lang==='es'?'✓ Fecha límite calculada':lang==='fr'?'✓ Date limite calculée':'✓ Deadline calculated'}: {fmtDate(deadline)}
+              </div>
+              <div style={{color:'var(--teal)',fontSize:13,opacity:.85}}>
+                {n!==null?`${Math.max(0,n)} ${lang==='es'?'días restantes':lang==='fr'?'jours restants':'days remaining'}`:''}
+              </div>
+            </div>
+          </div>
+          <div style={{background:'var(--paper)',borderRadius:14,padding:'28px 24px',boxShadow:'0 2px 24px rgba(30,58,92,.08)'}}>
+            <div style={{fontSize:11,color:'var(--ink3)',fontWeight:700,letterSpacing:'1.5px',textTransform:'uppercase',marginBottom:8}}>⚖️ PRRA Guide — Step 2 of 2</div>
+            <h2 style={{fontFamily:'Playfair Display,serif',fontSize:24,color:'var(--ink)',marginBottom:8}}>
+              {lang==='es'?'Perfil Legal':lang==='fr'?'Profil juridique':'Legal Profile'}
+            </h2>
+            <p style={{color:'var(--ink2)',fontSize:14,lineHeight:1.65,marginBottom:24}}>
+              {lang==='es'?'4 preguntas rápidas que determinan exactamente cómo guiar tu solicitud. Tus respuestas sólo se guardan en tu navegador.':
+               lang==='fr'?'4 questions rapides qui déterminent exactement comment guider votre demande. Vos réponses sont stockées uniquement dans votre navigateur.':
+               '4 quick questions that determine exactly how to guide your application. Your answers are stored only in your browser.'}
+            </p>
+            <Btn onClick={()=>{setStage(2);setIdx(0);setK(k=>k+1);}} style={{width:'100%',padding:'14px',fontSize:15}}>
+              {lang==='es'?'Continuar →':lang==='fr'?'Continuer →':'Continue →'}
+            </Btn>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const isCriminalWarning = stage===2 && cur?.id==='criminalRecord';
+  const badgeText = cur?.badge?.[lang]||cur?.badge?.en;
+
   return (
     <div style={{minHeight:'100vh',background:'var(--bg)',padding:'24px 16px',display:'flex',flexDirection:'column',alignItems:'center'}}>
-      <div style={{width:'100%',maxWidth:540,height:4,background:'#d8d0c4',borderRadius:2,marginBottom:28}}>
+      <div style={{width:'100%',maxWidth:580,height:4,background:'#d8d0c4',borderRadius:2,marginBottom:28}}>
         <div style={{height:4,width:`${pct}%`,background:'var(--navy)',borderRadius:2,transition:'width .35s ease'}}/>
       </div>
       {cur&&(
-        <div className="sl" key={k} style={{background:'var(--paper)',borderRadius:18,padding:'32px 28px',maxWidth:540,width:'100%',boxShadow:'0 2px 24px rgba(30,58,92,.08)'}}>
-          <div style={{fontSize:11,color:'var(--ink3)',fontWeight:700,letterSpacing:'1.5px',textTransform:'uppercase',marginBottom:10}}>{idx+1} / {DQ.length}</div>
-          <h2 style={{fontFamily:'Playfair Display,serif',fontSize:'clamp(18px,3vw,23px)',color:'var(--ink)',marginBottom:cur.sub?6:22,lineHeight:1.35}}>{T(cur.q)}</h2>
-          {cur.sub&&<p style={{color:'var(--ink2)',fontSize:13,marginBottom:18,lineHeight:1.55}}>{T(cur.sub)}</p>}
+        <div className="sl" key={k} style={{background:'var(--paper)',borderRadius:18,padding:'32px 28px',maxWidth:580,width:'100%',boxShadow:'0 2px 24px rgba(30,58,92,.08)'}}>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
+            <div style={{fontSize:11,color:'var(--ink3)',fontWeight:700,letterSpacing:'1.5px',textTransform:'uppercase'}}>
+              {globalIdx+1} / {totalQ}
+            </div>
+            {badgeText&&<div style={{fontSize:11,color:'var(--navy)',fontWeight:700,background:'var(--navyl)',padding:'3px 10px',borderRadius:20}}>{badgeText}</div>}
+          </div>
+          <h2 style={{fontFamily:'Playfair Display,serif',fontSize:'clamp(17px,3vw,22px)',color:'var(--ink)',marginBottom:cur.hint||cur.sub?8:20,lineHeight:1.35}}>{T(cur.q)}</h2>
+          {(cur.hint||cur.sub)&&(
+            <div style={{background:isCriminalWarning?'var(--amberp)':'var(--navyl)',borderRadius:9,padding:'10px 14px',marginBottom:18,fontSize:13,color:isCriminalWarning?'var(--amber)':'var(--navy)',lineHeight:1.6}}>
+              {isCriminalWarning?'⚠️ ':'ℹ️ '}{T(cur.hint||cur.sub)}
+            </div>
+          )}
           {cur.type==='text'&&(
             <div style={{display:'flex',flexDirection:'column',gap:10}}>
               <input value={txt} onChange={e=>setTxt(e.target.value)} onKeyDown={e=>e.key==='Enter'&&txt.trim()&&next(cur.id,txt.trim())}
                 placeholder={T(cur.ph)||''}
                 style={{border:'2px solid var(--brd)',borderRadius:10,padding:'12px 15px',fontSize:15,color:'var(--ink)',background:'var(--paper2)',outline:'none',transition:'border-color .2s'}}
                 onFocus={e=>e.target.style.borderColor='var(--navy)'} onBlur={e=>e.target.style.borderColor='var(--brd)'} autoFocus/>
-              <Btn onClick={()=>txt.trim()&&next(cur.id,txt.trim())} disabled={!txt.trim()} style={{width:'100%',padding:'13px'}}>Continue →</Btn>
-            </div>
-          )}
-          {cur.type==='date'&&(
-            <div style={{display:'flex',flexDirection:'column',gap:10}}>
-              <input type="date" value={txt} onChange={e=>setTxt(e.target.value)}
-                style={{border:'2px solid var(--brd)',borderRadius:10,padding:'12px 15px',fontSize:15,color:'var(--ink)',background:'var(--paper2)',outline:'none'}}
-                onFocus={e=>e.target.style.borderColor='var(--navy)'} onBlur={e=>e.target.style.borderColor='var(--brd)'} autoFocus/>
-              <Btn onClick={()=>txt&&next(cur.id,txt)} disabled={!txt} style={{width:'100%',padding:'13px'}}>Continue →</Btn>
+              <Btn onClick={()=>txt.trim()&&next(cur.id,txt.trim())} disabled={!txt.trim()} style={{width:'100%',padding:'13px'}}>
+                {lang==='es'?'Continuar →':lang==='fr'?'Continuer →':'Continue →'}
+              </Btn>
+              {cur.id==='uci'&&<button onClick={()=>next(cur.id,'none')} style={{background:'none',border:'none',color:'var(--ink3)',fontFamily:'Inter,sans-serif',fontSize:13,cursor:'pointer',padding:'4px 0',textDecoration:'underline'}}>
+                {lang==='es'?'No tengo UCI — saltar':lang==='fr'?'Je n'ai pas de UCI — ignorer':'I don't have a UCI — skip'}
+              </button>}
             </div>
           )}
           {cur.type==='choice'&&(
@@ -310,17 +608,24 @@ function Diagnosis({lang, onDone}) {
               ))}
             </div>
           )}
-          {idx>0&&<button onClick={()=>{setIdx(i=>i-1);setK(k=>k+1);}} style={{background:'none',border:'none',color:'var(--ink3)',fontFamily:'Inter,sans-serif',fontSize:12,cursor:'pointer',marginTop:14,padding:'4px 0'}}>← Back</button>}
+          {(idx>0||(stage===2))&&(
+            <button onClick={()=>{
+              if(idx>0){setIdx(i=>i-1);setK(k=>k+1);}
+              else if(stage===2){setStage('bridge');setIdx(0);}
+            }} style={{background:'none',border:'none',color:'var(--ink3)',fontFamily:'Inter,sans-serif',fontSize:12,cursor:'pointer',marginTop:14,padding:'4px 0'}}>
+              {UI.back?.[lang]||'← Back'}
+            </button>
+          )}
         </div>
       )}
     </div>
   );
 }
 
-// ── CHECKLIST ─────────────────────────────────────────────────────────────────
+// ── CHECKLIST ─────────────────────────────────────────────────────────────────// ── CHECKLIST ─────────────────────────────────────────────────────────────────
 const ITEMS = [
   {id:'imm5508',cat:'forms',icon:'📄',
-    en:{t:'Form IMM 5508',d:'The main PRRA application form. Given to you IN PERSON by your CBSA officer. NOT downloadable online. Each family member 18+ needs their own copy.',tip:'Ask your CBSA officer for extra blank copies when they give you the kit.'},
+    en:{t:'Form IMM 5508',d:'The main PRRA application form. Given to you IN PERSON by your CBSA officer. NOT downloadable online. Each family member 18+ needs their own SEPARATE copy — this is a strict requirement.',tip:'Ask your CBSA officer for extra blank copies when they give you the kit. If you have adult family members (18+), make sure each has their own form.'},
     es:{t:'Formulario IMM 5508',d:'El formulario principal de solicitud PRRA. Te lo entrega EN PERSONA tu oficial de la CBSA. NO se puede descargar en línea. Cada familiar de 18+ necesita su propia copia.',tip:'Pide copias adicionales en blanco a tu oficial de la CBSA cuando te entreguen el kit.'},
     fr:{t:'Formulaire IMM 5508',d:'Le formulaire principal de demande PRRA. Remis EN PERSONNE par votre agent CBSA. NON téléchargeable en ligne. Chaque membre de la famille 18+ a besoin de sa propre copie.',tip:'Demandez des copies supplémentaires vierges à votre agent CBSA.'}},
   {id:'identity',cat:'docs',icon:'🪪',
@@ -348,12 +653,20 @@ const ITEMS = [
     es:{t:'Documentos personales de apoyo',d:'Reportes policiales, expedientes médicos, documentos judiciales, cartas o mensajes de amenaza, fotos de lesiones, testimonios escritos de testigos, cartas personales. Toda evidencia personal que apoye tu riesgo específico.'},
     fr:{t:'Documents personnels de soutien',d:'Rapports de police, dossiers médicaux, documents judiciaires, lettres ou messages de menace, photos de blessures, témoignages écrits de témoins, lettres personnelles. Toute preuve personnelle appuyant votre risque spécifique.'}},
   {id:'imm5476',cat:'forms',icon:'👤',
-    en:{t:'Form IMM 5476 (if you have a representative)',d:'Use of a Representative form. Needed if ANYONE helps you and acts on your behalf — paid or unpaid, family or friend. Generate it in the IMM 5476 section.',tip:'Even an unpaid friend or family member helping you act on your behalf requires this form.'},
-    es:{t:'Formulario IMM 5476 (si tienes representante)',d:'Formulario de Uso de Representante. Necesario si ALGUIEN te ayuda y actúa en tu nombre — pagado o no, familiar o amigo. Genéralo en la sección IMM 5476.',tip:'Incluso un amigo o familiar no pagado que actúe en tu nombre requiere este formulario.'},
-    fr:{t:'Formulaire IMM 5476 (si vous avez un représentant)',d:'Formulaire d\'utilisation d\'un représentant. Requis si quelqu\'un agit en votre nom — payé ou non, famille ou ami. Générez-le dans la section IMM 5476.',tip:'Même un ami ou un membre de la famille non rémunéré agissant en votre nom nécessite ce formulaire.'}},
+    link:'https://www.canada.ca/content/dam/ircc/migration/ircc/english/pdf/kits/forms/imm5476e.pdf',
+    linkLabel:{en:'Download IMM 5476 (PDF)',es:'Descargar IMM 5476 (PDF)',fr:'Télécharger IMM 5476 (PDF)'},
+    en:{t:'Form IMM 5476 (if you have a representative)',d:'Use of a Representative form. Needed if ANYONE helps you and acts on your behalf — paid or unpaid, family or friend. Build it in the IMM 5476 section or download the official PDF.',tip:'Even an unpaid friend or family member helping you act on your behalf requires this form.'},
+    es:{t:'Formulario IMM 5476 (si tienes representante)',d:'Formulario de Uso de Representante. Necesario si ALGUIEN actúa en tu nombre — pagado o no. Genéralo en la sección IMM 5476 o descarga el PDF oficial.',tip:'Incluso un familiar no pagado que actúe en tu nombre requiere este formulario.'},
+    fr:{t:'Formulaire IMM 5476 (si vous avez un représentant)',d:"Formulaire d'utilisation d'un représentant. Requis si quelqu'un agit en votre nom. Générez-le dans la section IMM 5476 ou téléchargez le PDF officiel.",tip:"Même un ami non rémunéré agissant en votre nom nécessite ce formulaire."}},
+  {id:'imm5475',cat:'forms',icon:'📋',
+    link:'https://www.canada.ca/content/dam/ircc/migration/ircc/english/pdf/kits/forms/imm5475e.pdf',
+    linkLabel:{en:'Download IMM 5475 (PDF)',es:'Descargar IMM 5475 (PDF)',fr:'Télécharger IMM 5475 (PDF)'},
+    en:{t:'Form IMM 5475 — Authority to release info (optional)',d:'Allows IRCC to share your file information with a designated person (family, friend). Different from a representative — they only receive information, do not act on your behalf.',tip:'Optional but useful if a trusted person needs to follow up on your file without formally representing you.'},
+    es:{t:'Formulario IMM 5475 — Autorización para compartir información (opcional)',d:'Permite a IRCC compartir información de tu expediente con una persona de confianza. No actúa en tu nombre, solo recibe información.',tip:'Opcional pero útil si un familiar necesita dar seguimiento a tu expediente sin ser tu representante formal.'},
+    fr:{t:'Formulaire IMM 5475 — Autorisation de divulguer (optionnel)',d:"Permet à IRCC de partager les informations de votre dossier avec une personne désignée. Elle ne vous représente pas.",tip:"Optionnel mais utile si un proche doit faire le suivi de votre dossier."}},
 ];
 
-function ChecklistScreen({lang, checklist, onChange}) {
+function ChecklistScreen({lang, profile, checklist, onChange}) {
   const T = (item) => item[lang]||item.en;
   const done = ITEMS.filter(i=>checklist[i.id]).length;
   const pct = Math.round((done/ITEMS.length)*100);
@@ -364,6 +677,13 @@ function ChecklistScreen({lang, checklist, onChange}) {
   ];
   return (
     <div>
+      {profile?.familyMembers&&profile.familyMembers!=='alone'&&profile.familyMembers!=='children'&&(
+        <div style={{background:'var(--amberp)',border:'1.5px solid #fcd34d',borderRadius:12,padding:'12px 16px',marginBottom:14,fontSize:13,color:'var(--amber)',lineHeight:1.6,fontWeight:600}}>
+          👨‍👩‍👧 {lang==='es'?'Tienes familiares adultos en tu solicitud. Cada persona de 18 años o más necesita su PROPIO formulario IMM 5508 firmado por separado. Asegúrate de tener una copia en blanco por cada adulto.':
+             lang==='fr'?'Vous avez des membres de famille adultes dans votre demande. Chaque personne de 18 ans ou plus a besoin de son PROPRE formulaire IMM 5508 signé séparément.':
+             'You have adult family members in your application. Each person 18 or older needs their OWN separate signed IMM 5508 form. Make sure you have a blank copy for each adult.'}
+        </div>
+      )}
       <div style={{background:'var(--navyl)',borderRadius:12,padding:'14px 18px',marginBottom:18,display:'flex',alignItems:'center',gap:16}}>
         <div style={{flex:1}}>
           <div style={{fontWeight:600,color:'var(--navy)',marginBottom:5,fontSize:14}}>{done} of {ITEMS.length} items ready</div>
@@ -390,6 +710,13 @@ function ChecklistScreen({lang, checklist, onChange}) {
                   </div>
                   <p style={{fontSize:13,color:'var(--ink2)',lineHeight:1.6}}>{info.d}</p>
                   {info.tip&&<div style={{fontSize:12,color:'var(--amber)',fontWeight:600,marginTop:6,display:'flex',gap:5,alignItems:'flex-start'}}><span>💡</span><span>{info.tip}</span></div>}
+                  {item.link&&(
+                    <a href={item.link} target="_blank" rel="noreferrer"
+                      onClick={e=>e.stopPropagation()}
+                      style={{display:'inline-flex',alignItems:'center',gap:5,marginTop:8,padding:'5px 12px',background:'var(--navyl)',color:'var(--navy)',borderRadius:7,fontSize:12,fontWeight:700,textDecoration:'none',border:'1px solid #b8cfe0'}}>
+                      ⬇️ {item.linkLabel?.[lang]||item.linkLabel?.en||'Download PDF'}
+                    </a>
+                  )}
                 </div>
               </div>
             );
@@ -475,6 +802,20 @@ function RiskLetterBuilder({lang, profile, riskLetter, onChange, apiKey}) {
 
   return (
     <div>
+      {profile?.prraType==='restricted'&&(
+        <div style={{background:'var(--redp)',borderRadius:12,padding:'14px 18px',marginBottom:14,fontSize:13,color:'var(--red)',lineHeight:1.65,fontWeight:600}}>
+          ⚠️ {lang==='es'?'Tu PRRA es RESTRINGIDO (IRPA s.112(3)). Solo puedes argumentar riesgo de tortura, peligro de vida o trato cruel (Art. 97). NO argumentes persecución por raza, religión, etc. (Art. 96) — no aplica a tu caso. Considera consultar un RCIC o abogado.':
+             lang==='fr'?'Votre PRRA est RESTREINT (LIPR art.112(3)). Vous ne pouvez argumenter que le risque de torture, le danger de vie ou traitement cruel (art.97). NE PAS argumenter la persécution (art.96) — ne s'applique pas à votre cas. Consultez un CRIC ou avocat.':
+             'Your PRRA is RESTRICTED (IRPA s.112(3)). You can only argue risk of torture, life risk, or cruel treatment (s.97). Do NOT argue persecution based on race, religion, etc. (s.96) — it does not apply to your case. Consider consulting an RCIC or immigration lawyer.'}
+        </div>
+      )}
+      {profile?.claimRejected==='yes'&&(
+        <div style={{background:'var(--amberp)',borderRadius:12,padding:'14px 18px',marginBottom:14,fontSize:13,color:'var(--amber)',lineHeight:1.65,fontWeight:600}}>
+          ⚠️ {lang==='es'?'Tu solicitud de refugio fue rechazada por el IRB. Bajo IRPA s.113(a), SOLO puedes presentar evidencia NUEVA — que surgió después del rechazo o no estaba disponible antes. NO repitas evidencia que ya presentaste.':
+             lang==='fr'?'Votre demande d'asile a été rejetée par la CISR. En vertu de l'art.113(a), vous ne pouvez soumettre QUE de nouvelles preuves — apparues après le rejet ou non disponibles avant. Ne répétez pas les preuves déjà soumises.':
+             'Your refugee claim was rejected by the IRB. Under IRPA s.113(a), you can ONLY submit NEW evidence — that arose after the rejection or was not available before. Do NOT repeat evidence you already presented.'}
+        </div>
+      )}
       <div style={{background:'var(--navyl)',borderRadius:12,padding:'14px 18px',marginBottom:18,fontSize:13,color:'var(--navy)',lineHeight:1.65}}>
         Answer all 5 questions below in as much detail as possible, in any language. The AI will write a complete professional letter in English for you to review and submit. <strong>Be specific and personal</strong> — this is the most important document in your application.
       </div>
@@ -520,7 +861,7 @@ function IMM5476({lang, profile, data, onChange}) {
     {id:'appFirst',label:'Applicant — First/given name(s)',dflt:profile?.firstName||''},
     {id:'appDOB',label:'Applicant — Date of birth',type:'date'},
     {id:'appEmail',label:'Applicant — Email address',type:'email'},
-    {id:'appUCI',label:'Applicant — UCI / Client ID',ph:'Leave blank if you don\'t have one yet'},
+    {id:'appUCI',label:'Applicant — UCI / Client ID (from IRCC letters)',dflt:profile?.uci&&profile.uci!=='none'?profile.uci:'',ph:'Leave blank if you don\'t have one yet'},
     {id:'appType',label:'Type of application',dflt:'Pre-Removal Risk Assessment (PRRA)'},
     {id:'repType',label:'Representative type',type:'select',opts:[{v:'unpaid',l:'Unpaid — friend, family, or community member (no fee charged)'},{v:'cicc',l:'Paid — CICC member (immigration consultant)'},{v:'lawyer',l:'Paid — Lawyer / member of a Canadian law society'},{v:'notary',l:'Paid — Quebec notary (Chambre des notaires du Québec)'}]},
     {id:'repName',label:'Representative — Full name (as on official membership list if paid)'},
@@ -745,17 +1086,113 @@ const PHASES = [
   {id:'chat',icon:'💬',en:'Ask a Question',es:'Hacer una Pregunta',fr:'Poser une Question',ko:'질문하기',ro:'Pune o întrebare'},
 ];
 
+// card color logic helper
+function phaseColor(pct, hasStarted) {
+  if(pct===100) return {bg:'#d4ede9',border:'#6bbdad',bar:'var(--teal)',label:'var(--teal)',status:'✓'};
+  if(pct>0)     return {bg:'#fef8ed',border:'#f5c842',bar:'#e6a817',label:'#b45309',status:'…'};
+  if(hasStarted)return {bg:'#fdeced',border:'#fca5a5',bar:'#ef4444',label:'var(--red)',status:'!'};
+  return        {bg:'var(--paper)',border:'var(--brd)',bar:'var(--ink3)',label:'var(--ink3)',status:''};
+}
+
+function OverviewBox({lang, progress, checkDone, checkTotal, riskDone, imm5476Done, profile}) {
+  const steps = [
+    {k:'checklist', icon:'📋',
+     en:`Documents: ${checkDone}/${checkTotal} items checked`,
+     es:`Documentos: ${checkDone}/${checkTotal} elementos marcados`,
+     fr:`Documents: ${checkDone}/${checkTotal} éléments cochés`},
+    {k:'riskletter', icon:'✍️',
+     en:`Risk letter: ${riskDone}/5 questions answered`,
+     es:`Carta de riesgos: ${riskDone}/5 preguntas respondidas`,
+     fr:`Lettre de risques: ${riskDone}/5 questions répondues`},
+    {k:'imm5476', icon:'📄',
+     en: imm5476Done>0 ? 'IMM 5476: in progress' : 'IMM 5476: not started',
+     es: imm5476Done>0 ? 'IMM 5476: en progreso' : 'IMM 5476: no iniciado',
+     fr: imm5476Done>0 ? 'IMM 5476: en cours' : 'IMM 5476: non commencé'},
+    {k:'submission', icon:'📮',
+     en:'Submission guide: read when ready',
+     es:'Guía de envío: léela cuando estés listo/a',
+     fr:'Guide de soumission: à lire quand vous êtes prêt(e)'},
+  ];
+  const total = progress.checklist + progress.riskletter + (imm5476Done>0?60:0);
+  const overall = Math.min(100, Math.round(total/3));
+  const T = (obj) => obj?.[lang]||obj?.en||'';
+  const overallLabel = {
+    en: overall===0?'Not started yet — begin with your Document Checklist':
+        overall<40?'Getting started — keep going!':
+        overall<80?'Good progress — you're on your way':
+        overall<100?'Almost ready — final review needed':
+        'Application ready to submit!',
+    es: overall===0?'Aún no has comenzado — empieza con tu Lista de Documentos':
+        overall<40?'Comenzando — ¡sigue adelante!':
+        overall<80?'Buen progreso — vas por buen camino':
+        overall<100?'Casi listo/a — revisión final necesaria':
+        '¡Solicitud lista para enviar!',
+    fr: overall===0?'Pas encore commencé — commencez par votre liste de documents':
+        overall<40?'Vous démarrez — continuez!':
+        overall<80?'Bon progrès — vous êtes en bonne voie':
+        overall<100?'Presque prêt(e) — révision finale nécessaire':
+        'Demande prête à soumettre!',
+  };
+  return (
+    <div style={{background:'var(--paper)',borderRadius:14,border:'1.5px solid var(--brd)',padding:'18px 20px',marginBottom:18,boxShadow:'0 2px 12px rgba(30,58,92,.06)'}}>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
+        <div style={{fontWeight:700,fontSize:14,color:'var(--ink)'}}>
+          📊 {lang==='es'?'Tu progreso general':lang==='fr'?'Votre progression globale':'Your overall progress'}
+        </div>
+        <div style={{fontFamily:'Playfair Display,serif',fontSize:22,fontWeight:700,color:overall===100?'var(--teal)':overall>50?'var(--amber)':'var(--ink2)'}}>{overall}%</div>
+      </div>
+      <div style={{height:7,background:'#e8e3db',borderRadius:4,overflow:'hidden',marginBottom:12}}>
+        <div style={{height:7,width:`${overall}%`,background:overall===100?'var(--teal)':overall>50?'#e6a817':'var(--navy)',borderRadius:4,transition:'width .8s ease'}}/>
+      </div>
+      <div style={{fontSize:13,color:overall===100?'var(--teal)':overall>50?'var(--amber)':'var(--ink2)',fontWeight:600,marginBottom:14}}>{T(overallLabel)}</div>
+      <div style={{display:'flex',flexDirection:'column',gap:6}}>
+        {steps.map(s=>{
+          const pct=progress[s.k]||0;
+          const c=pct===100?'var(--teal)':pct>0?'var(--amber)':'var(--ink3)';
+          const dot=pct===100?'✓':pct>0?'◑':'○';
+          return(
+            <div key={s.k} style={{display:'flex',alignItems:'center',gap:8,fontSize:13}}>
+              <span style={{color:c,fontWeight:700,width:14,flexShrink:0,fontSize:11}}>{dot}</span>
+              <span style={{color:'var(--ink2)'}}>{T(s)}</span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function Dashboard({lang, profile, checklist, riskLetter, imm5476Data, dispatch, onReset}) {
   const [active,setActive] = useState(null);
   const T = (obj) => obj?.[lang]||obj?.en||'';
   const checkDone = ITEMS.filter(i=>checklist[i.id]).length;
+  const checkTotal = ITEMS.length;
   const riskDone = Object.values(riskLetter||{}).filter(v=>v?.trim()).length;
   const imm5476Done = Object.keys(imm5476Data||{}).length;
-  const progress = {checklist:Math.round((checkDone/ITEMS.length)*100),riskletter:Math.round((riskDone/5)*100),imm5476:imm5476Done>0?60:0,submission:0,hearing:0,chat:0};
+
+  // pct per phase (0-100)
+  const progress = {
+    checklist: Math.round((checkDone/checkTotal)*100),
+    riskletter: Math.round((riskDone/5)*100),
+    imm5476: imm5476Done>=4?100:imm5476Done>0?Math.round((imm5476Done/12)*100):0,
+    submission: 0,
+    hearing: 0,
+    chat: 0,
+  };
+
+  // was anything ever touched?
+  const started = {
+    checklist: checkDone>0,
+    riskletter: riskDone>0,
+    imm5476: imm5476Done>0,
+    submission: false,
+    hearing: false,
+    chat: false,
+  };
 
   const renderPhase = () => {
     switch(active) {
-      case 'checklist': return <ChecklistScreen lang={lang} checklist={checklist} onChange={(id,v)=>dispatch({type:'CHECK',id,v})}/>;
+      case 'checklist': return <ChecklistScreen lang={lang} profile={profile} checklist={checklist} onChange={(id,v)=>dispatch({type:'CHECK',id,v})}/>;
       case 'riskletter': return <RiskLetterBuilder lang={lang} profile={profile} riskLetter={riskLetter} onChange={(id,v)=>dispatch({type:'RISK',id,v})}/>;
       case 'imm5476': return <IMM5476 lang={lang} profile={profile} data={imm5476Data} onChange={(id,v)=>dispatch({type:'IMM',id,v})}/>;
       case 'submission': return <SubmissionGuide/>;
@@ -788,30 +1225,62 @@ function Dashboard({lang, profile, checklist, riskLetter, imm5476Data, dispatch,
           <h1 style={{fontFamily:'Playfair Display,serif',color:'#fff',fontSize:'clamp(22px,5vw,32px)',marginBottom:4,lineHeight:1.2}}>
             {profile?.firstName?`${UI.hello?.[lang]||'Hello'}, ${profile.firstName}`:(UI.deadline?.[lang]||'Your PRRA Process')}
           </h1>
-          <div style={{color:'rgba(255,255,255,.65)',fontSize:14}}>
+          <div style={{color:'rgba(255,255,255,.65)',fontSize:14,marginBottom:8}}>
             {profile?.country} · {profile?.isFirstPRRA?(UI.firstPRRA?.[lang]||'First PRRA application'):(UI.repeatPRRA?.[lang]||'Repeat PRRA application')}
+          </div>
+          <div style={{display:'flex',flexWrap:'wrap',gap:7}}>
+            <span style={{background: profile?.prraType==='restricted'?'rgba(185,28,28,.85)':'rgba(26,92,82,.85)', color:'#fff',fontSize:11,fontWeight:700,padding:'3px 10px',borderRadius:20,letterSpacing:'.5px'}}>
+              {profile?.prraType==='restricted'
+                ? (lang==='es'?'⚠️ PRRA Restringido — solo Art. 97':lang==='fr'?'⚠️ PRRA Restreint — art. 97 seulement':'⚠️ Restricted PRRA — s.97 only')
+                : (lang==='es'?'✓ PRRA Completo — Art. 96 + 97':lang==='fr'?'✓ PRRA Complet — art. 96 + 97':'✓ Full PRRA — s.96 + s.97')}
+            </span>
+            {profile?.claimRejected==='yes'&&(
+              <span style={{background:'rgba(180,83,9,.85)',color:'#fff',fontSize:11,fontWeight:700,padding:'3px 10px',borderRadius:20,letterSpacing:'.5px'}}>
+                {lang==='es'?'⚠️ Solo evidencia nueva (s.113a)':lang==='fr'?'⚠️ Nouvelles preuves uniquement (art.113a)':'⚠️ New evidence only (s.113a)'}
+              </span>
+            )}
           </div>
         </div>
       </div>
       <div style={{maxWidth:620,margin:'0 auto',padding:'20px 16px 48px'}}>
         <Countdown deadline={profile?.deadline} lang={lang}/>
+
+        {/* ── OVERVIEW BOX ── */}
+        <OverviewBox lang={lang} progress={progress} checkDone={checkDone} checkTotal={checkTotal} riskDone={riskDone} imm5476Done={imm5476Done} profile={profile}/>
+
+        {/* ── PHASE CARDS ── */}
         <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(168px,1fr))',gap:11,marginBottom:22}}>
           {PHASES.map(phase=>{
-            const pct=progress[phase.id]||0;
+            const pct = progress[phase.id]||0;
+            const col = phaseColor(pct, started[phase.id]);
+            const isActionable = ['checklist','riskletter','imm5476','submission','hearing','chat'].includes(phase.id);
             return(
               <button key={phase.id} onClick={()=>setActive(phase.id)}
-                style={{background:'var(--paper)',border:'1.5px solid var(--brd)',borderRadius:14,padding:'18px 16px',textAlign:'left',cursor:'pointer',fontFamily:'Inter,sans-serif',transition:'all .2s',position:'relative',overflow:'hidden',outline:'none'}}
-                onMouseEnter={e=>{e.currentTarget.style.borderColor='var(--navy)';e.currentTarget.style.transform='translateY(-2px)';e.currentTarget.style.boxShadow='0 5px 18px rgba(30,58,92,.12)';}}
-                onMouseLeave={e=>{e.currentTarget.style.borderColor='var(--brd)';e.currentTarget.style.transform='none';e.currentTarget.style.boxShadow='none';}}>
-                {pct>0&&<div style={{position:'absolute',bottom:0,left:0,height:3,width:`${pct}%`,background:'var(--teal)',borderRadius:'0 3px 0 0',transition:'width .5s ease'}}/>}
-                <div style={{fontSize:26,marginBottom:9}}>{phase.icon}</div>
-                <div style={{fontWeight:600,fontSize:13.5,color:'var(--ink)',lineHeight:1.35}}>{T(phase)}</div>
-                {pct>0&&<div style={{fontSize:11,color:'var(--ink3)',marginTop:5}}>{pct}{UI.complete?.[lang]||'% complete'}</div>}
+                style={{background:col.bg,border:`2px solid ${col.border}`,borderRadius:14,padding:'16px 15px',textAlign:'left',cursor:'pointer',fontFamily:'Inter,sans-serif',transition:'all .2s',position:'relative',overflow:'hidden',outline:'none'}}
+                onMouseEnter={e=>{e.currentTarget.style.transform='translateY(-2px)';e.currentTarget.style.boxShadow='0 6px 20px rgba(30,58,92,.13)';}}
+                onMouseLeave={e=>{e.currentTarget.style.transform='none';e.currentTarget.style.boxShadow='none';}}>
+                {/* color bar at bottom */}
+                <div style={{position:'absolute',bottom:0,left:0,right:0,height:4,background:col.border,opacity:.6}}/>
+                {/* progress bar inside */}
+                {pct>0&&pct<100&&<div style={{position:'absolute',bottom:0,left:0,height:4,width:`${pct}%`,background:col.bar,opacity:1,transition:'width .6s ease'}}/>}
+                <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:8}}>
+                  <span style={{fontSize:24}}>{phase.icon}</span>
+                  {col.status&&<span style={{fontSize:14,fontWeight:800,color:col.label}}>{col.status}</span>}
+                </div>
+                <div style={{fontWeight:700,fontSize:13,color:'var(--ink)',lineHeight:1.3,marginBottom:pct>0?5:0}}>{T(phase)}</div>
+                {pct>0&&pct<100&&<div style={{fontSize:11,color:col.label,fontWeight:700}}>{pct}{UI.complete?.[lang]||'% complete'}</div>}
+                {pct===100&&<div style={{fontSize:11,color:'var(--teal)',fontWeight:700}}>
+                  {lang==='es'?'Completado':lang==='fr'?'Complété':'Completed'}
+                </div>}
+                {pct===0&&started[phase.id]&&<div style={{fontSize:11,color:'var(--red)',fontWeight:700}}>
+                  {lang==='es'?'Sin completar':lang==='fr'?'Non complété':'Incomplete'}
+                </div>}
               </button>
             );
           })}
         </div>
-        <div style={{background:'var(--paper)',borderRadius:12,padding:'15px 18px',border:'1px solid var(--brd)',fontSize:12.5,color:'var(--ink2)',lineHeight:1.7,marginBottom:14}}>
+
+        <div style={{background:'var(--paper)',borderRadius:12,padding:'14px 18px',border:'1px solid var(--brd)',fontSize:12.5,color:'var(--ink2)',lineHeight:1.7,marginBottom:14}}>
           <strong style={{color:'var(--ink)'}}>⚖️</strong> {UI.disclaimer?.[lang]||UI.disclaimer?.en} <a href="https://canada.ca" target="_blank" rel="noreferrer" style={{color:'var(--navy)'}}>canada.ca</a>.
         </div>
         <button onClick={onReset} style={{background:'none',border:'1px solid var(--brd)',borderRadius:8,padding:'8px 16px',cursor:'pointer',color:'var(--ink3)',fontFamily:'Inter,sans-serif',fontSize:12}}>{UI.startOver?.[lang]||'Start over'}</button>
@@ -837,6 +1306,7 @@ export default function App() {
   const saved = load();
   const [screen,setScreen] = useState(saved?.profile?'resume':'lang');
   const [lang,setLang] = useState(saved?.lang||'en');
+  const [accepted,setAccepted] = useState(false);
   const [profile,setProfile] = useState(saved?.profile||null);
   const [state,dispatch] = useReducer(reducer,{
     checklist: saved?.checklist||{},
@@ -864,7 +1334,14 @@ export default function App() {
   if(screen==='lang') return (
     <>
       <style>{CSS}</style>
-      <LangScreen onSelect={l=>{setLang(l);setScreen('diagnosis');}}/>
+      <LangScreen onSelect={l=>{setLang(l);setScreen('disclaimer');}}/>
+    </>
+  );
+
+  if(screen==='disclaimer') return (
+    <>
+      <style>{CSS}</style>
+      <DisclaimerScreen lang={lang} onAccept={()=>setScreen('diagnosis')} onDecline={()=>{setLang('en');setScreen('lang');}}/>
     </>
   );
 
