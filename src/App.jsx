@@ -247,46 +247,109 @@ const DISCLAIMER_TEXT = {
 };
 
 function DisclaimerScreen({lang, onAccept, onDecline}) {
+  const [step, setStep] = useState(0);
+  // step 0 = bullet 1 individual accept
+  // step 1 = bullet 2 individual accept
+  // step 2 = bullets 3-6 + final accept
+  const D = DISCLAIMER_TEXT[lang] || DISCLAIMER_TEXT.en;
+
+  const stepCfg = [
+    {
+      idx: 0,
+      en:{h:"Step 1 of 3 — What this tool is",accept:"I understand — Continue",scroll:"Scroll down to read before continuing"},
+      es:{h:"Paso 1 de 3 — Qué es esta herramienta",accept:"Entendido — Continuar",scroll:"Desplázate para leer antes de continuar"},
+      fr:{h:"Étape 1 sur 3 — Ce qu'est cet outil",accept:"Je comprends — Continuer",scroll:"Faites défiler pour lire avant de continuer"},
+    },
+    {
+      idx: 1,
+      en:{h:"Step 2 of 3 — What this tool is NOT",accept:"I understand and accept — Continue",scroll:"Scroll down to read before continuing"},
+      es:{h:"Paso 2 de 3 — Qué NO es esta herramienta",accept:"Entendido y acepto — Continuar",scroll:"Desplázate para leer antes de continuar"},
+      fr:{h:"Étape 2 sur 3 — Ce que cet outil N'est PAS",accept:"Je comprends et j'accepte — Continuer",scroll:"Faites défiler pour lire avant de continuer"},
+    },
+    {
+      idx: null,
+      en:{h:"Step 3 of 3 — Additional terms",scroll:"Scroll down to read before accepting"},
+      es:{h:"Paso 3 de 3 — Términos adicionales",scroll:"Desplázate para leer antes de aceptar"},
+      fr:{h:"Étape 3 sur 3 — Conditions supplémentaires",scroll:"Faites défiler pour lire avant d'accepter"},
+    },
+  ];
+
+  const cfg = stepCfg[step];
+  const L = lang==="es"?"es":lang==="fr"?"fr":"en";
   const [scrolled, setScrolled] = useState(false);
   const contentRef = useRef(null);
-  const D = DISCLAIMER_TEXT[lang] || DISCLAIMER_TEXT.en;
 
   const handleScroll = (e) => {
     const el = e.target;
     if(el.scrollTop + el.clientHeight >= el.scrollHeight - 40) setScrolled(true);
   };
 
+  const handleStepChange = (nextStep) => {
+    setScrolled(false);
+    setStep(nextStep);
+    if(contentRef.current) contentRef.current.scrollTop = 0;
+  };
+
   return (
-    <div style={{minHeight:'100vh',background:'linear-gradient(155deg,#0d2137 0%,#1e3a5c 50%,#1a5c52 100%)',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:'24px 16px'}}>
+    <div style={{minHeight:"100vh",background:"linear-gradient(155deg,#0d2137 0%,#1e3a5c 50%,#1a5c52 100%)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"24px 16px"}}>
       <style>{CSS}</style>
-      <div className="fi" style={{background:'var(--paper)',borderRadius:18,maxWidth:640,width:'100%',boxShadow:'0 8px 40px rgba(0,0,0,.3)',overflow:'hidden',display:'flex',flexDirection:'column',maxHeight:'90vh'}}>
-        <div style={{background:'var(--navy2)',padding:'22px 28px',flexShrink:0}}>
-          <div style={{color:'rgba(255,255,255,.5)',fontSize:11,letterSpacing:'2px',textTransform:'uppercase',marginBottom:6}}>⚖️ PRRA Guide · Canada</div>
-          <h2 style={{fontFamily:'Playfair Display,serif',color:'#fff',fontSize:'clamp(19px,3vw,24px)',marginBottom:4}}>{D.title}</h2>
-          <p style={{color:'rgba(255,255,255,.6)',fontSize:13}}>{D.subtitle}</p>
+      <div className="fi" style={{background:"var(--paper)",borderRadius:18,maxWidth:640,width:"100%",boxShadow:"0 8px 40px rgba(0,0,0,.3)",overflow:"hidden",display:"flex",flexDirection:"column",maxHeight:"90vh"}}>
+        <div style={{background:"var(--navy2)",padding:"22px 28px",flexShrink:0}}>
+          <div style={{color:"rgba(255,255,255,.5)",fontSize:11,letterSpacing:"2px",textTransform:"uppercase",marginBottom:6}}>⚖️ PRRA Guide · Canada</div>
+          <h2 style={{fontFamily:"Playfair Display,serif",color:"#fff",fontSize:"clamp(18px,3vw,23px)",marginBottom:4}}>{cfg[L]?.h||cfg.en.h}</h2>
+          <div style={{display:"flex",gap:6,marginTop:8}}>
+            {[0,1,2].map(i=>(
+              <div key={i} style={{height:4,flex:1,borderRadius:2,background:i<=step?"#fff":"rgba(255,255,255,.25)",transition:"background .3s"}}/>
+            ))}
+          </div>
         </div>
+
         <div ref={contentRef} onScroll={handleScroll}
-          style={{flex:1,overflowY:'auto',padding:'24px 28px',background:'var(--paper2)'}}>
-          {D.body.map((s,i)=>(
-            <div key={i} style={{marginBottom:20}}>
-              <div style={{fontWeight:700,color:'var(--navy)',fontSize:14,marginBottom:6,display:'flex',gap:8,alignItems:'center'}}>
-                <span style={{width:22,height:22,borderRadius:'50%',background:'var(--navyl)',color:'var(--navy)',display:'inline-flex',alignItems:'center',justifyContent:'center',fontSize:11,fontWeight:800,flexShrink:0}}>{i+1}</span>
-                {s.h}
+          style={{flex:1,overflowY:"auto",padding:"24px 28px",background:"var(--paper2)"}}>
+
+          {step<2?(
+            <div>
+              <div style={{background:"var(--navyl)",borderRadius:11,padding:"16px 20px",marginBottom:0}}>
+                <div style={{fontWeight:700,color:"var(--navy)",fontSize:15,marginBottom:10}}>
+                  {D.body[cfg.idx].h}
+                </div>
+                <p style={{fontSize:14,color:"var(--ink2)",lineHeight:1.75}}>
+                  {D.body[cfg.idx].t}
+                </p>
               </div>
-              <p style={{fontSize:13.5,color:'var(--ink2)',lineHeight:1.7,paddingLeft:30}}>{s.t}</p>
             </div>
-          ))}
+          ):(
+            <div>
+              {D.body.slice(2).map((s,i)=>(
+                <div key={i} style={{marginBottom:18}}>
+                  <div style={{fontWeight:700,color:"var(--navy)",fontSize:14,marginBottom:6,display:"flex",gap:8,alignItems:"center"}}>
+                    <span style={{width:22,height:22,borderRadius:"50%",background:"var(--navyl)",color:"var(--navy)",display:"inline-flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:800,flexShrink:0}}>{i+3}</span>
+                    {s.h}
+                  </div>
+                  <p style={{fontSize:13.5,color:"var(--ink2)",lineHeight:1.7,paddingLeft:30}}>{s.t}</p>
+                </div>
+              ))}
+            </div>
+          )}
+
           {!scrolled&&(
-            <div style={{textAlign:'center',color:'var(--ink3)',fontSize:12,marginTop:8,fontStyle:'italic'}}>
-              ↓ Scroll down to read everything before accepting
+            <div style={{textAlign:"center",color:"var(--ink3)",fontSize:12,marginTop:12,fontStyle:"italic"}}>
+              ↓ {cfg[L]?.scroll||cfg.en.scroll}
             </div>
           )}
         </div>
-        <div style={{padding:'18px 28px',borderTop:'1px solid var(--brd)',background:'var(--paper)',flexShrink:0,display:'flex',flexDirection:'column',gap:8}}>
-          <Btn onClick={onAccept} style={{width:'100%',padding:'13px',fontSize:14,opacity:scrolled?1:.6}}>
-            {D.accept}
-          </Btn>
-          <Btn onClick={onDecline} variant="danger" style={{width:'100%',padding:'10px',fontSize:13}}>
+
+        <div style={{padding:"18px 28px",borderTop:"1px solid var(--brd)",background:"var(--paper)",flexShrink:0,display:"flex",flexDirection:"column",gap:8}}>
+          {step<2?(
+            <Btn onClick={()=>handleStepChange(step+1)} style={{width:"100%",padding:"13px",fontSize:14,opacity:scrolled?1:.65}}>
+              {cfg[L]?.accept||cfg.en.accept} →
+            </Btn>
+          ):(
+            <Btn onClick={onAccept} style={{width:"100%",padding:"13px",fontSize:14,opacity:scrolled?1:.65}}>
+              {D.accept}
+            </Btn>
+          )}
+          <Btn onClick={onDecline} variant="danger" style={{width:"100%",padding:"10px",fontSize:13}}>
             {D.decline}
           </Btn>
         </div>
@@ -1114,9 +1177,291 @@ function Chat({lang, profile}) {
 }
 
 // ── DASHBOARD ─────────────────────────────────────────────────────────────────
+
+// ── IMM 5508 GUIDE ─────────────────────────────────────────────────────────────
+const IMM5508_STEPS = [
+  {
+    id:"cover",icon:"📋",
+    en:{
+      title:"Cover page — Form identification",
+      summary:"The cover page identifies the form and is pre-printed. You do not fill anything here.",
+      fields:[],
+      tips:["Check that the form number on your copy says IMM 5508. If you were given a different form, return to your CBSA officer.","Do not staple or fold pages — use a binder clip or rubber band if needed."]
+    },
+    es:{
+      title:"Portada — Identificación del formulario",
+      summary:"La portada identifica el formulario y viene pre-impresa. No debes escribir nada aquí.",
+      fields:[],
+      tips:["Verifica que el número del formulario en tu copia diga IMM 5508. Si te dieron otro formulario, regresa con tu oficial de la CBSA.","No engrapar ni doblar páginas."]
+    },
+    fr:{
+      title:"Page couverture — Identification du formulaire",
+      summary:"La page couverture identifie le formulaire et est pré-imprimée. Vous ne remplissez rien ici.",
+      fields:[],
+      tips:["Vérifiez que le numéro du formulaire sur votre copie indique IMM 5508.","Ne pas agrafer ni plier les pages."]
+    },
+  },
+  {
+    id:"sectionA",icon:"🪪",
+    en:{
+      title:"Section A — Your personal information",
+      summary:"Basic identifying information about you. Fill in every field exactly as it appears on your passport or official ID.",
+      fields:[
+        {f:"Family name (surname)",h:"Your last name exactly as on your passport. If you use multiple surnames, include all of them."},
+        {f:"Given name(s)",h:"Your first name and middle name(s) if any. Do not abbreviate."},
+        {f:"Date of birth",h:"Format: DD/MM/YYYY. Use the date on your passport or birth certificate."},
+        {f:"Country of birth",h:"The country where you were born — not where you are from now."},
+        {f:"Country of citizenship",h:"Your current country of nationality (the country of your passport). If you have more than one, list all."},
+        {f:"UCI / Client ID number",h:"The number on any previous IRCC letter. Leave blank if you have never received one — it will be assigned to you later."},
+        {f:"Current address in Canada",h:"Your complete current mailing address in Canada. Include street number, street name, city, province, and postal code."},
+        {f:"Phone number",h:"A phone number where IRCC can reach you. Include the area code."},
+        {f:"Email address",h:"An email you check regularly. IRCC may send hearing notices and decisions here."},
+      ],
+      tips:["Use a black or dark blue pen. Print clearly in capital letters.","Do not use correction fluid (White-Out). If you make an error, cross it out with a single line and initial it.","Leave no field blank — write N/A if not applicable."]
+    },
+    es:{
+      title:"Sección A — Tu información personal",
+      summary:"Información básica de identificación. Llena cada campo exactamente como aparece en tu pasaporte o identificación oficial.",
+      fields:[
+        {f:"Apellido(s)",h:"Tu apellido exactamente como aparece en tu pasaporte. Si tienes varios apellidos, inclúyelos todos."},
+        {f:"Nombre(s)",h:"Tu nombre y segundo nombre si tienes. No uses abreviaturas."},
+        {f:"Fecha de nacimiento",h:"Formato: DD/MM/AAAA. Usa la fecha de tu pasaporte o acta de nacimiento."},
+        {f:"País de nacimiento",h:"El país donde naciste, no donde vives ahora."},
+        {f:"País de ciudadanía",h:"Tu país de nacionalidad actual (el país de tu pasaporte). Si tienes más de uno, listarlos todos."},
+        {f:"Número UCI / ID de cliente",h:"El número en cualquier carta previa de IRCC. Déjalo en blanco si nunca has recibido uno — te lo asignarán más tarde."},
+        {f:"Dirección actual en Canadá",h:"Tu dirección postal completa en Canadá. Incluye número de calle, nombre de calle, ciudad, provincia y código postal."},
+        {f:"Número de teléfono",h:"Un número donde IRCC pueda contactarte. Incluye el código de área."},
+        {f:"Correo electrónico",h:"Un correo que revises regularmente. IRCC puede enviarte avisos de audiencias y decisiones aquí."},
+      ],
+      tips:["Usa bolígrafo negro o azul oscuro. Imprime claramente en letras mayúsculas.","No uses corrector líquido (White-Out). Si cometes un error, táchalo con una sola línea y pon tus iniciales.","No dejes ningún campo en blanco — escribe N/A si no aplica."]
+    },
+    fr:{
+      title:"Section A — Vos renseignements personnels",
+      summary:"Informations d'identification de base. Remplissez chaque champ exactement comme sur votre passeport ou pièce d'identité officielle.",
+      fields:[
+        {f:"Nom de famille",h:"Votre nom de famille tel qu'il figure sur votre passeport. Si vous avez plusieurs noms de famille, incluez-les tous."},
+        {f:"Prénom(s)",h:"Votre prénom et deuxième prénom le cas échéant. Ne pas abréger."},
+        {f:"Date de naissance",h:"Format : JJ/MM/AAAA. Utilisez la date figurant sur votre passeport ou acte de naissance."},
+        {f:"Pays de naissance",h:"Le pays où vous êtes né(e), pas où vous habitez actuellement."},
+        {f:"Pays de citoyenneté",h:"Votre pays de nationalité actuel (le pays de votre passeport). Si vous en avez plusieurs, listez-les tous."},
+        {f:"Numéro UCI / ID client",h:"Le numéro figurant sur toute lettre IRCC antérieure. Laissez vide si vous n'en avez jamais reçu."},
+        {f:"Adresse actuelle au Canada",h:"Votre adresse postale complète au Canada. Incluez le numéro de rue, le nom de rue, la ville, la province et le code postal."},
+        {f:"Numéro de téléphone",h:"Un numéro où l'IRCC peut vous joindre. Inclure l'indicatif régional."},
+        {f:"Adresse courriel",h:"Un courriel que vous consultez régulièrement. L'IRCC peut y envoyer des avis d'audience et des décisions."},
+      ],
+      tips:["Utilisez un stylo noir ou bleu foncé. Imprimez clairement en lettres majuscules.","Ne pas utiliser de correcteur liquide. En cas d'erreur, barrez d'un trait et paraphez.","Ne laissez aucun champ vide — écrivez S/O si non applicable."]
+    },
+  },
+  {
+    id:"sectionB",icon:"⚠️",
+    en:{
+      title:"Section B — Basis of your PRRA claim",
+      summary:"This is where you identify the legal grounds for your claim. What you check here must match what you write in your separate written submission letter.",
+      fields:[
+        {f:"Section 96 — Convention refugee",h:"Check this box if you fear persecution based on: race, religion, nationality, membership in a particular social group, or political opinion. Only available for FULL PRRA (not restricted)."},
+        {f:"Section 97(1)(a) — Danger of torture",h:"Check this box if you would personally be subjected to torture as defined in the Convention Against Torture. Requires that a state actor is involved or acquiesces."},
+        {f:"Section 97(1)(b) — Risk to life / cruel treatment",h:"Check this box if there is a risk to your life or risk of cruel and unusual treatment or punishment — if it exists everywhere in your country, is not faced by the general population, and is not from lawful sanctions."},
+      ],
+      tips:["You can check more than one box if multiple grounds apply to you.","If you have a RESTRICTED PRRA (serious criminality), do NOT check s.96. You may only check s.97(1)(a) or s.97(1)(b).","What you check here must be consistent with your written submissions. Contradictions will hurt your case."]
+    },
+    es:{
+      title:"Sección B — Base de tu solicitud PRRA",
+      summary:"Aquí identificas los fundamentos legales de tu solicitud. Lo que marques aquí debe coincidir con lo que escribas en tu carta de riesgos.",
+      fields:[
+        {f:"Sección 96 — Refugiado convencional",h:"Marca esta casilla si temes persecución por: raza, religión, nacionalidad, pertenencia a un grupo social particular, u opinión política. Solo disponible para PRRA COMPLETO (no restringido)."},
+        {f:"Sección 97(1)(a) — Peligro de tortura",h:"Marca esta casilla si serías sometido/a personalmente a tortura según la Convención contra la Tortura. Requiere que un actor estatal esté involucrado o lo permita."},
+        {f:"Sección 97(1)(b) — Riesgo de vida / trato cruel",h:"Marca esta casilla si hay riesgo para tu vida o riesgo de trato cruel e inusual — si existe en todo tu país, no lo enfrenta la población general, y no proviene de sanciones legales legítimas."},
+      ],
+      tips:["Puedes marcar más de una casilla si aplican múltiples fundamentos.","Si tienes PRRA RESTRINGIDO (criminalidad grave), NO marques la s.96. Solo puedes marcar s.97(1)(a) o s.97(1)(b).","Lo que marques aquí debe ser coherente con tu carta de riesgos."]
+    },
+    fr:{
+      title:"Section B — Fondement de votre demande PRRA",
+      summary:"C'est ici que vous identifiez les motifs juridiques de votre demande. Ce que vous cochez doit correspondre à ce que vous écrivez dans votre lettre de risques.",
+      fields:[
+        {f:"Article 96 — Réfugié au sens de la Convention",h:"Cochez cette case si vous craignez d'être persécuté(e) en raison de : race, religion, nationalité, appartenance à un groupe social particulier, ou opinion politique. Disponible uniquement pour PRRA COMPLET."},
+        {f:"Article 97(1)(a) — Danger de torture",h:"Cochez cette case si vous seriez personnellement soumis(e) à la torture au sens de la Convention contre la torture. Nécessite l'implication ou l'acquiescement d'un acteur étatique."},
+        {f:"Article 97(1)(b) — Risque pour la vie / traitement cruel",h:"Cochez cette case s'il y a un risque pour votre vie ou un risque de traitements ou peines cruels et inusités — s'il existe partout dans votre pays, n'est pas couru par la population en général, et ne découle pas de sanctions légales légitimes."},
+      ],
+      tips:["Vous pouvez cocher plus d'une case si plusieurs motifs s'appliquent.","Si vous avez un PRRA RESTREINT (criminalité grave), ne cochez PAS l'art.96.","Ce que vous cochez doit être cohérent avec vos observations écrites."]
+    },
+  },
+  {
+    id:"sectionC",icon:"✍️",
+    en:{
+      title:"Section C — Description of risk",
+      summary:"A brief written description of your risk — this is separate from your full written submission letter. Keep it clear and factual here; your detailed arguments go in the separate submission.",
+      fields:[
+        {f:"Description of risk",h:"Write a concise summary (3–5 sentences) of the risk you face if returned. Example: 'I am a journalist who reported on government corruption. After my last article, I received death threats from government-linked groups. Police refused to investigate. I believe I will be killed or imprisoned if I return.'"},
+      ],
+      tips:["This is a SUMMARY only — not your full argument. Your full case is made in your separate written submission letter.","Write in English or French. If you are not comfortable, write a brief summary and expand in your submission letter.","Be factual and specific. Avoid vague statements like 'my country is dangerous'.","This section must be consistent with your written submission. Do not contradict yourself."]
+    },
+    es:{
+      title:"Sección C — Descripción del riesgo",
+      summary:"Una breve descripción escrita de tu riesgo — esto es separado de tu carta de riesgos completa. Sé claro y factual aquí; tus argumentos detallados van en el escrito separado.",
+      fields:[
+        {f:"Descripción del riesgo",h:"Escribe un resumen conciso (3-5 oraciones) del riesgo que enfrentas si te deportan. Ejemplo: 'Soy periodista que reportó sobre corrupción gubernamental. Después de mi último artículo, recibí amenazas de muerte de grupos vinculados al gobierno. La policía se negó a investigar. Creo que seré asesinado/a o encarcelado/a si regreso.'"},
+      ],
+      tips:["Esto es solo un RESUMEN — no tu argumento completo. Tu caso completo va en tu carta de riesgos separada.","Escribe en inglés o francés. Si no te sientes cómodo/a, escribe un breve resumen y amplía en tu carta de riesgos.","Sé factual y específico/a. Evita declaraciones vagas como 'mi país es peligroso'.","Esta sección debe ser coherente con tu carta de riesgos."]
+    },
+    fr:{
+      title:"Section C — Description du risque",
+      summary:"Une brève description écrite de votre risque — distincte de votre lettre de risques complète. Soyez clair et factuel ici.",
+      fields:[
+        {f:"Description du risque",h:"Rédigez un résumé concis (3-5 phrases) du risque auquel vous faites face si vous êtes renvoyé(e). Exemple : 'Je suis journaliste et j'ai rapporté sur la corruption gouvernementale. Après mon dernier article, j'ai reçu des menaces de mort de groupes liés au gouvernement. La police a refusé d'enquêter.'"},
+      ],
+      tips:["Ceci est un RÉSUMÉ seulement — pas votre argument complet.","Écrivez en anglais ou en français.","Soyez factuel(le) et précis(e). Évitez les déclarations vagues comme 'mon pays est dangereux'.","Cette section doit être cohérente avec vos observations écrites."]
+    },
+  },
+  {
+    id:"sectionD",icon:"📎",
+    en:{
+      title:"Section D — List of documents attached",
+      summary:"You must list every document you are submitting with your application. Number them consecutively (Exhibit 1, Exhibit 2, etc.).",
+      fields:[
+        {f:"Document number",h:"Assign a number to each document: Exhibit 1, Exhibit 2, etc. Write this number on the document itself in the top right corner."},
+        {f:"Description of document",h:"Brief description: e.g. 'Exhibit 1 — Threatening letter received January 2024 (original + certified translation)'."},
+        {f:"Language",h:"Write the original language of the document. If it is not English or French, you must attach a certified translation."},
+      ],
+      tips:["Every document you list here must actually be attached. Do not list documents you do not have.","Documents not in English or French MUST be accompanied by a certified translation AND a signed translator declaration.","Mark each physical document clearly with its exhibit number before submitting.","Keep a complete copy of everything you submit for your own records."]
+    },
+    es:{
+      title:"Sección D — Lista de documentos adjuntos",
+      summary:"Debes listar cada documento que envías con tu solicitud. Numéralos consecutivamente (Anexo 1, Anexo 2, etc.).",
+      fields:[
+        {f:"Número de documento",h:"Asigna un número a cada documento: Anexo 1, Anexo 2, etc. Escribe este número en el documento mismo en la esquina superior derecha."},
+        {f:"Descripción del documento",h:"Descripción breve: ej. 'Anexo 1 — Carta amenazante recibida en enero 2024 (original + traducción certificada)'."},
+        {f:"Idioma",h:"Escribe el idioma original del documento. Si no está en inglés o francés, debes adjuntar una traducción certificada."},
+      ],
+      tips:["Cada documento que listes aquí debe estar adjunto. No listes documentos que no tienes.","Los documentos que no estén en inglés o francés DEBEN incluir traducción certificada Y declaración del traductor.","Marca cada documento físico claramente con su número de anexo antes de enviarlo.","Guarda una copia completa de todo lo que envíes para tus propios registros."]
+    },
+    fr:{
+      title:"Section D — Liste des documents joints",
+      summary:"Vous devez lister chaque document soumis avec votre demande. Numérotez-les consécutivement (Pièce 1, Pièce 2, etc.).",
+      fields:[
+        {f:"Numéro de document",h:"Attribuez un numéro à chaque document : Pièce 1, Pièce 2, etc. Inscrivez ce numéro sur le document lui-même dans le coin supérieur droit."},
+        {f:"Description du document",h:"Brève description : ex. 'Pièce 1 — Lettre de menace reçue en janvier 2024 (original + traduction certifiée)'."},
+        {f:"Langue",h:"Indiquez la langue originale du document. S'il n'est pas en anglais ou en français, vous devez joindre une traduction certifiée."},
+      ],
+      tips:["Chaque document listé doit être effectivement joint.","Les documents non rédigés en anglais ou en français DOIVENT être accompagnés d'une traduction certifiée ET d'une déclaration du traducteur.","Marquez clairement chaque document avec son numéro de pièce avant de soumettre.","Conservez une copie complète de tout ce que vous soumettez."]
+    },
+  },
+  {
+    id:"sectionE",icon:"✒️",
+    en:{
+      title:"Section E — Declaration and signature",
+      summary:"This is the most important section. Your signature certifies that everything in the application is true and complete. Read every word before signing.",
+      fields:[
+        {f:"Applicant signature",h:"Sign your full legal signature — the same one you use on your passport and official documents. Do NOT print your name here, write your actual signature."},
+        {f:"Date",h:"Write today's date in DD/MM/YYYY format. Do not pre-date or post-date."},
+        {f:"Name of interpreter (if used)",h:"If someone helped you understand and complete the form, write their full name here. They must also sign if they assisted you as an interpreter."},
+      ],
+      tips:["Do not sign until you have read and verified everything on the form.","If you cannot sign (due to disability), ask your CBSA officer about alternative options.","If a family member 18+ has their own copy of the form, each person must sign their own copy separately.","IMPORTANT: By signing, you declare under Canadian law that all information is true. Providing false information is a serious offence."]
+    },
+    es:{
+      title:"Sección E — Declaración y firma",
+      summary:"Esta es la sección más importante. Tu firma certifica que todo en la solicitud es verdadero y completo. Lee cada palabra antes de firmar.",
+      fields:[
+        {f:"Firma del solicitante",h:"Firma con tu firma legal completa — la misma que usas en tu pasaporte y documentos oficiales. NO imprimas tu nombre aquí, escribe tu firma real."},
+        {f:"Fecha",h:"Escribe la fecha de hoy en formato DD/MM/AAAA. No escribas una fecha anterior ni posterior."},
+        {f:"Nombre del intérprete (si se usó)",h:"Si alguien te ayudó a entender y completar el formulario, escribe su nombre completo aquí. Ellos también deben firmar si te asistieron como intérprete."},
+      ],
+      tips:["No firmes hasta haber leído y verificado todo en el formulario.","Si un familiar de 18+ tiene su propia copia del formulario, cada persona debe firmar su propia copia por separado.","IMPORTANTE: Al firmar, declaras bajo la ley canadiense que toda la información es verdadera. Proporcionar información falsa es un delito grave."]
+    },
+    fr:{
+      title:"Section E — Déclaration et signature",
+      summary:"C'est la section la plus importante. Votre signature certifie que tout dans la demande est vrai et complet. Lisez chaque mot avant de signer.",
+      fields:[
+        {f:"Signature du demandeur",h:"Signez de votre signature légale complète — la même que sur votre passeport et documents officiels. N'imprimez PAS votre nom ici, écrivez votre vraie signature."},
+        {f:"Date",h:"Inscrivez la date d'aujourd'hui au format JJ/MM/AAAA. Ne pas antidater ni postdater."},
+        {f:"Nom de l'interprète (si utilisé)",h:"Si quelqu'un vous a aidé à comprendre et remplir le formulaire, inscrivez son nom complet ici."},
+      ],
+      tips:["Ne signez pas avant d'avoir lu et vérifié tout le formulaire.","Si un membre de la famille de 18 ans ou plus a sa propre copie du formulaire, chaque personne doit signer sa propre copie séparément.","IMPORTANT : En signant, vous déclarez sous le régime de la loi canadienne que tous les renseignements sont vrais. Fournir de faux renseignements est une infraction grave."]
+    },
+  },
+];
+
+function IMM5508Guide({lang}) {
+  const [activeStep, setActiveStep] = useState(0);
+  const L = lang==="es"?"es":lang==="fr"?"fr":"en";
+  const step = IMM5508_STEPS[activeStep];
+  const data = step[L] || step.en;
+
+  const labels = {
+    en:{title:"How to fill out Form IMM 5508",sub:"Step-by-step guide — given to you by your CBSA officer",field:"Field",how:"How to fill it",tip:"Tips",next:"Next section →",prev:"← Previous",done:"All done!",of:"of"},
+    es:{title:"Cómo llenar el formulario IMM 5508",sub:"Guía paso a paso — te lo entrega tu oficial de la CBSA",field:"Campo",how:"Cómo llenarlo",tip:"Consejos",next:"Siguiente sección →",prev:"← Anterior",done:"¡Terminado!",of:"de"},
+    fr:{title:"Comment remplir le formulaire IMM 5508",sub:"Guide étape par étape — remis par votre agent CBSA",field:"Champ",how:"Comment le remplir",tip:"Conseils",next:"Section suivante →",prev:"← Précédent",done:"Terminé!",of:"sur"},
+  };
+  const lb = labels[L] || labels.en;
+
+  return (
+    <div>
+      <div style={{background:"var(--navyl)",borderRadius:12,padding:"14px 18px",marginBottom:18,fontSize:13,color:"var(--navy)",lineHeight:1.65}}>
+        <strong>{lb.title}</strong><br/>
+        <span style={{opacity:.8}}>{lb.sub}</span>
+      </div>
+
+      <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:18}}>
+        {IMM5508_STEPS.map((s,i)=>(
+          <button key={s.id} onClick={()=>setActiveStep(i)}
+            style={{padding:"6px 13px",borderRadius:20,border:"1.5px solid "+(i===activeStep?"var(--navy)":"var(--brd)"),background:i===activeStep?"var(--navy)":"var(--paper)",color:i===activeStep?"#fff":"var(--ink2)",fontFamily:"Inter,sans-serif",fontSize:12.5,fontWeight:600,cursor:"pointer",outline:"none",transition:"all .15s"}}>
+            {s.icon} {i===0?"Cover":i===5?"Sign":("Sec. "+(["A","B","C","D","E"][i-1]||i))}
+          </button>
+        ))}
+      </div>
+
+      <div className="fi" key={activeStep} style={{background:"var(--paper)",borderRadius:14,padding:"22px 20px",boxShadow:"0 2px 14px rgba(30,58,92,.08)",marginBottom:14}}>
+        <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:12}}>
+          <span style={{fontSize:26}}>{step.icon}</span>
+          <div>
+            <div style={{fontFamily:"Playfair Display,serif",fontSize:17,color:"var(--ink)",fontWeight:600}}>{data.title}</div>
+            <div style={{fontSize:11,color:"var(--ink3)",marginTop:2}}>{lb.of.charAt(0).toUpperCase()+lb.of.slice(1)} {activeStep+1} {lb.of} {IMM5508_STEPS.length}</div>
+          </div>
+        </div>
+
+        <p style={{fontSize:13.5,color:"var(--ink2)",lineHeight:1.7,marginBottom:data.fields.length?16:0,background:"var(--paper2)",borderRadius:9,padding:"12px 14px"}}>{data.summary}</p>
+
+        {data.fields.length>0&&(
+          <div style={{marginBottom:16}}>
+            <div style={{fontSize:11,fontWeight:700,color:"var(--ink3)",textTransform:"uppercase",letterSpacing:"1px",marginBottom:10}}>{lb.field} / {lb.how}</div>
+            {data.fields.map((field,fi)=>(
+              <div key={fi} style={{borderLeft:"3px solid var(--navy)",paddingLeft:14,marginBottom:13}}>
+                <div style={{fontWeight:700,fontSize:14,color:"var(--navy)",marginBottom:3}}>{field.f}</div>
+                <div style={{fontSize:13,color:"var(--ink2)",lineHeight:1.65}}>{field.h}</div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {data.tips.length>0&&(
+          <div style={{background:"#fffbf0",borderRadius:10,padding:"14px 16px",border:"1px solid #fcd34d"}}>
+            <div style={{fontSize:11,fontWeight:700,color:"var(--amber)",textTransform:"uppercase",letterSpacing:"1px",marginBottom:8}}>💡 {lb.tip}</div>
+            {data.tips.map((tip,ti)=>(
+              <div key={ti} style={{fontSize:13,color:"var(--ink2)",lineHeight:1.65,paddingBottom:ti<data.tips.length-1?8:0,borderBottom:ti<data.tips.length-1?"1px solid #fde68a":"none",marginBottom:ti<data.tips.length-1?8:0}}>
+                {tip}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div style={{display:"flex",justifyContent:"space-between",gap:10}}>
+        {activeStep>0
+          ?<Btn onClick={()=>setActiveStep(activeStep-1)} variant="secondary" style={{padding:"10px 18px"}}>{lb.prev}</Btn>
+          :<div/>
+        }
+        {activeStep<IMM5508_STEPS.length-1
+          ?<Btn onClick={()=>setActiveStep(activeStep+1)} style={{padding:"10px 18px"}}>{lb.next}</Btn>
+          :<Btn variant="success" style={{padding:"10px 18px",cursor:"default"}}>✓ {lb.done}</Btn>
+        }
+      </div>
+    </div>
+  );
+}
+
 const PHASES = [
   {id:'checklist',icon:'📋',en:'Document Checklist',es:'Lista de Documentos',fr:'Liste de Documents',pt:'Lista de Documentos',ar:'قائمة المستندات',hi:'दस्तावेज़ सूची',zh:'文件清单',uk:'Список документів',ru:'Список документов',ko:'서류 체크리스트',ro:'Lista de documente'},
   {id:'riskletter',icon:'✍️',en:'Risk Letter Builder',es:'Constructor de Carta de Riesgos',fr:'Rédacteur de Lettre de Risques',ko:'위험 편지 작성기',ro:'Redactor scrisoare de risc'},
+  {id:'imm5508',icon:'📝',en:'How to fill IMM 5508',es:'Cómo llenar el IMM 5508',fr:'Remplir le IMM 5508',ko:'IMM 5508 작성 방법',ro:'Completare IMM 5508'},
   {id:'imm5476',icon:'📄',en:'Form IMM 5476',es:'Formulario IMM 5476',fr:'Formulaire IMM 5476',ko:'양식 IMM 5476'},
   {id:'submission',icon:'📮',en:'How to Submit',es:'Cómo Enviar',fr:'Comment Soumettre',ko:'제출 방법',ro:'Cum să trimiteți'},
   {id:'hearing',icon:'💻',en:'Hearing Preparation',es:'Preparación para Audiencia',fr:'Préparation à l\'Audience',ko:'청문회 준비',ro:'Pregătire pentru audiere'},
@@ -1211,6 +1556,7 @@ function Dashboard({lang, profile, checklist, riskLetter, imm5476Data, dispatch,
   const progress = {
     checklist: Math.round((checkDone/checkTotal)*100),
     riskletter: Math.round((riskDone/5)*100),
+    imm5508: 0,
     imm5476: imm5476Done>=4?100:imm5476Done>0?Math.round((imm5476Done/12)*100):0,
     submission: 0,
     hearing: 0,
@@ -1221,6 +1567,7 @@ function Dashboard({lang, profile, checklist, riskLetter, imm5476Data, dispatch,
   const started = {
     checklist: checkDone>0,
     riskletter: riskDone>0,
+    imm5508: false,
     imm5476: imm5476Done>0,
     submission: false,
     hearing: false,
@@ -1229,6 +1576,7 @@ function Dashboard({lang, profile, checklist, riskLetter, imm5476Data, dispatch,
 
   const renderPhase = () => {
     switch(active) {
+      case 'imm5508': return <IMM5508Guide lang={lang}/>;
       case 'checklist': return <ChecklistScreen lang={lang} profile={profile} checklist={checklist} onChange={(id,v)=>dispatch({type:'CHECK',id,v})}/>;
       case 'riskletter': return <RiskLetterBuilder lang={lang} profile={profile} riskLetter={riskLetter} onChange={(id,v)=>dispatch({type:'RISK',id,v})}/>;
       case 'imm5476': return <IMM5476 lang={lang} profile={profile} data={imm5476Data} onChange={(id,v)=>dispatch({type:'IMM',id,v})}/>;
