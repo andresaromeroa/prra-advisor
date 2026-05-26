@@ -164,6 +164,7 @@ html,body{height:100%;background:#f2ede6;font-family:'Inter',sans-serif}
 button:focus-visible{outline:2px solid var(--navy);outline-offset:2px}
 ::-webkit-scrollbar{width:4px}::-webkit-scrollbar-thumb{background:#c8bfb0;border-radius:2px}
 input,textarea,select{font-family:'Inter',sans-serif}
+@keyframes bob{0%,100%{transform:translateX(-50%) translateY(0)}50%{transform:translateX(-50%) translateY(-5px)}}
 `;
 
 // ── HELPERS ───────────────────────────────────────────────────────────────────
@@ -248,52 +249,56 @@ const DISCLAIMER_TEXT = {
 
 function DisclaimerScreen({lang, onAccept, onDecline}) {
   const [step, setStep] = useState(0);
-  // step 0 = bullet 1 individual accept
-  // step 1 = bullet 2 individual accept
-  // step 2 = bullets 3-6 + final accept
   const D = DISCLAIMER_TEXT[lang] || DISCLAIMER_TEXT.en;
 
   const stepCfg = [
-    {
-      idx: 0,
-      en:{h:"Step 1 of 3 — What this tool is",accept:"I understand — Continue",scroll:"Scroll down to read before continuing"},
-      es:{h:"Paso 1 de 3 — Qué es esta herramienta",accept:"Entendido — Continuar",scroll:"Desplázate para leer antes de continuar"},
-      fr:{h:"Étape 1 sur 3 — Ce qu'est cet outil",accept:"Je comprends — Continuer",scroll:"Faites défiler pour lire avant de continuer"},
-    },
-    {
-      idx: 1,
-      en:{h:"Step 2 of 3 — What this tool is NOT",accept:"I understand and accept — Continue",scroll:"Scroll down to read before continuing"},
-      es:{h:"Paso 2 de 3 — Qué NO es esta herramienta",accept:"Entendido y acepto — Continuar",scroll:"Desplázate para leer antes de continuar"},
-      fr:{h:"Étape 2 sur 3 — Ce que cet outil N'est PAS",accept:"Je comprends et j'accepte — Continuer",scroll:"Faites défiler pour lire avant de continuer"},
-    },
-    {
-      idx: null,
-      en:{h:"Step 3 of 3 — Additional terms",scroll:"Scroll down to read before accepting"},
-      es:{h:"Paso 3 de 3 — Términos adicionales",scroll:"Desplázate para leer antes de aceptar"},
-      fr:{h:"Étape 3 sur 3 — Conditions supplémentaires",scroll:"Faites défiler pour lire avant d'accepter"},
-    },
+    {idx:0,en:{h:"Step 1 of 3 — What this tool is",accept:"I understand — Continue"},es:{h:"Paso 1 de 3 — Qué es esta herramienta",accept:"Entendido — Continuar"},fr:{h:"Étape 1 sur 3 — Ce que cet outil est",accept:"Je comprends — Continuer"}},
+    {idx:1,en:{h:"Step 2 of 3 — What this tool is NOT",accept:"I understand and accept — Continue"},es:{h:"Paso 2 de 3 — Qué NO es esta herramienta",accept:"Entendido y acepto — Continuar"},fr:{h:"Étape 2 sur 3 — Ce que cet outil n'est PAS",accept:"Je comprends et accepte — Continuer"}},
+    {idx:null,en:{h:"Step 3 of 3 — Additional terms",scrollHint:"More below ↓"},es:{h:"Paso 3 de 3 — Términos adicionales",scrollHint:"Más abajo ↓"},fr:{h:"Étape 3 sur 3 — Conditions supplémentaires",scrollHint:"Plus bas ↓"}},
   ];
 
   const cfg = stepCfg[step];
   const L = lang==="es"?"es":lang==="fr"?"fr":"en";
   const [scrolled, setScrolled] = useState(false);
+  const [showHint, setShowHint] = useState(false);
   const contentRef = useRef(null);
+
+  // On step 2, check after render if content overflows to show the floating hint
+  useEffect(()=>{
+    if(step===2&&contentRef.current){
+      const el = contentRef.current;
+      const overflows = el.scrollHeight > el.clientHeight + 20;
+      setShowHint(overflows);
+    } else {
+      setShowHint(false);
+    }
+  },[step]);
 
   const handleScroll = (e) => {
     const el = e.target;
-    if(el.scrollTop + el.clientHeight >= el.scrollHeight - 40) setScrolled(true);
+    const atBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - 40;
+    if(atBottom){ setScrolled(true); setShowHint(false); }
+    else { setShowHint(true); }
   };
 
   const handleStepChange = (nextStep) => {
     setScrolled(false);
+    setShowHint(false);
     setStep(nextStep);
     if(contentRef.current) contentRef.current.scrollTop = 0;
+  };
+
+  const scrollDown = () => {
+    if(contentRef.current){
+      contentRef.current.scrollBy({top:160,behavior:"smooth"});
+    }
   };
 
   return (
     <div style={{minHeight:"100vh",background:"linear-gradient(155deg,#0d2137 0%,#1e3a5c 50%,#1a5c52 100%)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"24px 16px"}}>
       <style>{CSS}</style>
-      <div className="fi" style={{background:"var(--paper)",borderRadius:18,maxWidth:640,width:"100%",boxShadow:"0 8px 40px rgba(0,0,0,.3)",overflow:"hidden",display:"flex",flexDirection:"column",maxHeight:"90vh"}}>
+      <div className="fi" style={{background:"var(--paper)",borderRadius:18,maxWidth:640,width:"100%",boxShadow:"0 8px 40px rgba(0,0,0,.3)",overflow:"hidden",display:"flex",flexDirection:"column",maxHeight:"90vh",position:"relative"}}>
+
         <div style={{background:"var(--navy2)",padding:"22px 28px",flexShrink:0}}>
           <div style={{color:"rgba(255,255,255,.5)",fontSize:11,letterSpacing:"2px",textTransform:"uppercase",marginBottom:6}}>⚖️ PRRA Guide · Canada</div>
           <h2 style={{fontFamily:"Playfair Display,serif",color:"#fff",fontSize:"clamp(18px,3vw,23px)",marginBottom:4}}>{cfg[L]?.h||cfg.en.h}</h2>
@@ -308,15 +313,13 @@ function DisclaimerScreen({lang, onAccept, onDecline}) {
           style={{flex:1,overflowY:"auto",padding:"24px 28px",background:"var(--paper2)"}}>
 
           {step<2?(
-            <div>
-              <div style={{background:"var(--navyl)",borderRadius:11,padding:"16px 20px",marginBottom:0}}>
-                <div style={{fontWeight:700,color:"var(--navy)",fontSize:15,marginBottom:10}}>
-                  {D.body[cfg.idx].h}
-                </div>
-                <p style={{fontSize:14,color:"var(--ink2)",lineHeight:1.75}}>
-                  {D.body[cfg.idx].t}
-                </p>
+            <div style={{background:"var(--navyl)",borderRadius:11,padding:"16px 20px"}}>
+              <div style={{fontWeight:700,color:"var(--navy)",fontSize:15,marginBottom:10}}>
+                {D.body[cfg.idx].h}
               </div>
+              <p style={{fontSize:14,color:"var(--ink2)",lineHeight:1.75}}>
+                {D.body[cfg.idx].t}
+              </p>
             </div>
           ):(
             <div>
@@ -331,21 +334,43 @@ function DisclaimerScreen({lang, onAccept, onDecline}) {
               ))}
             </div>
           )}
-
-          {!scrolled&&(
-            <div style={{textAlign:"center",color:"var(--ink3)",fontSize:12,marginTop:12,fontStyle:"italic"}}>
-              ↓ {cfg[L]?.scroll||cfg.en.scroll}
-            </div>
-          )}
         </div>
+
+        {/* Floating scroll hint — only on step 2, only when content overflows and not yet scrolled to bottom */}
+        {step===2&&showHint&&(
+          <button
+            onClick={scrollDown}
+            style={{
+              position:"absolute",
+              bottom:88,
+              left:"50%",
+              transform:"translateX(-50%)",
+              background:"var(--navy)",
+              color:"#fff",
+              border:"none",
+              borderRadius:20,
+              padding:"7px 18px",
+              fontSize:13,
+              fontFamily:"Inter,sans-serif",
+              fontWeight:600,
+              cursor:"pointer",
+              boxShadow:"0 3px 14px rgba(30,58,92,.35)",
+              display:"flex",
+              alignItems:"center",
+              gap:6,
+              animation:"bob 1.8s ease-in-out infinite",
+            }}>
+            <span>{cfg[L]?.scrollHint||cfg.en.scrollHint}</span>
+          </button>
+        )}
 
         <div style={{padding:"18px 28px",borderTop:"1px solid var(--brd)",background:"var(--paper)",flexShrink:0,display:"flex",flexDirection:"column",gap:8}}>
           {step<2?(
-            <Btn onClick={()=>handleStepChange(step+1)} style={{width:"100%",padding:"13px",fontSize:14,opacity:scrolled?1:.65}}>
+            <Btn onClick={()=>handleStepChange(step+1)} style={{width:"100%",padding:"13px",fontSize:14}}>
               {cfg[L]?.accept||cfg.en.accept} →
             </Btn>
           ):(
-            <Btn onClick={onAccept} style={{width:"100%",padding:"13px",fontSize:14,opacity:scrolled?1:.65}}>
+            <Btn onClick={onAccept} style={{width:"100%",padding:"13px",fontSize:14}}>
               {D.accept}
             </Btn>
           )}
