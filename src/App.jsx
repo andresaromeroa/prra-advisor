@@ -980,94 +980,204 @@ function RiskLetterBuilder({lang, profile, riskLetter, onChange, apiKey}) {
 }
 
 // ── IMM 5476 ──────────────────────────────────────────────────────────────────
+// Field map: our data keys → official PDF AcroForm field names
+const PDF_FIELD_MAP = {
+  appLast:    "IMM_5476[0].Page1[0].SectionA[0].familyName[0]",
+  appFirst:   "IMM_5476[0].Page1[0].SectionA[0].givenName[0]",
+  appDOB:     "IMM_5476[0].Page1[0].SectionA[0].DOB[0]",
+  appEmail:   "IMM_5476[0].Page1[0].SectionA[0].office[0]",
+  appPhone:   "IMM_5476[0].Page1[0].SectionA[0].office[1]",
+  appType:    "IMM_5476[0].Page1[0].SectionA[0].application[0]",
+  appUCI:     "IMM_5476[0].Page1[0].SectionA[0].UCI[0]",
+  repLast:    "IMM_5476[0].Page1[0].SectionB[0].familyName[0]",
+  repFirst:   "IMM_5476[0].Page1[0].SectionB[0].givenName[0]",
+  repMember:  "IMM_5476[0].Page1[0].SectionB[0].question6[0].questionI[0].membership[0]",
+  repOrg:     "IMM_5476[0].Page1[0].SectionB[0].question7[0].organization[0]",
+  repAddress: "IMM_5476[0].Page1[0].SectionB[0].question7[0].streetName[0]",
+  repCity:    "IMM_5476[0].Page1[0].SectionB[0].question7[0].city[0]",
+  repProvince:"IMM_5476[0].Page1[0].SectionB[0].question7[0].province[0]",
+  repCountry: "IMM_5476[0].Page1[0].SectionB[0].question7[0].country[0]",
+  repPostal:  "IMM_5476[0].Page1[0].SectionB[0].question7[0].postalcode[0]",
+  repPhone:   "IMM_5476[0].Page1[0].SectionB[0].question7[0].phoneNumber[0]",
+  repEmail:   "IMM_5476[0].Page1[0].SectionB[0].question7[0].email[0]",
+};
+
+function splitRepName(fullName) {
+  if(!fullName) return {last:"", first:""};
+  const parts = fullName.trim().split(" ");
+  return {last: parts[parts.length-1]||"", first: parts.slice(0,-1).join(" ")||parts[0]||""};
+}
+
 function IMM5476({lang, profile, data, onChange}) {
+  const [generating, setGenerating] = useState(false);
+  const [status, setStatus] = useState(null); // null | "ok" | "error"
+
   const fields = [
-    {id:'appLast',label:'Applicant — Last name (family name)',dflt:profile?.lastName||''},
-    {id:'appFirst',label:'Applicant — First/given name(s)',dflt:profile?.firstName||''},
-    {id:'appDOB',label:'Applicant — Date of birth',type:'date'},
-    {id:'appEmail',label:'Applicant — Email address',type:'email'},
-    {id:'appUCI',label:'Applicant — UCI / Client ID (from IRCC letters)',dflt:profile?.uci&&profile.uci!=='none'?profile.uci:'',ph:'Leave blank if you don\'t have one yet'},
-    {id:'appType',label:'Type of application',dflt:'Pre-Removal Risk Assessment (PRRA)'},
-    {id:'repType',label:'Representative type',type:'select',opts:[{v:'unpaid',l:'Unpaid — friend, family, or community member (no fee charged)'},{v:'cicc',l:'Paid — CICC member (immigration consultant)'},{v:'lawyer',l:'Paid — Lawyer / member of a Canadian law society'},{v:'notary',l:'Paid — Quebec notary (Chambre des notaires du Québec)'}]},
-    {id:'repName',label:'Representative — Full name (as on official membership list if paid)'},
-    {id:'repMember',label:'Representative — Membership / registration ID',ph:'Leave blank if unpaid representative'},
-    {id:'repOrg',label:'Representative — Organization or firm name',ph:'Optional'},
-    {id:'repAddress',label:'Representative — Full address'},
-    {id:'repPhone',label:'Representative — Phone number'},
-    {id:'repEmail',label:'Representative — Email address'},
+    {id:"appLast",  label:{en:"Applicant — Last name (family name)", es:"Solicitante — Apellido", fr:"Demandeur — Nom de famille"}, dflt:profile?.lastName||""},
+    {id:"appFirst", label:{en:"Applicant — First / given name(s)",  es:"Solicitante — Nombre(s)", fr:"Demandeur — Prénom(s)"}, dflt:profile?.firstName||""},
+    {id:"appDOB",   label:{en:"Applicant — Date of birth (YYYY-MM-DD)", es:"Solicitante — Fecha de nacimiento (AAAA-MM-DD)", fr:"Demandeur — Date de naissance (AAAA-MM-JJ)"}, type:"date"},
+    {id:"appEmail", label:{en:"Applicant — Email address", es:"Solicitante — Correo electrónico", fr:"Demandeur — Adresse courriel"}, type:"email"},
+    {id:"appPhone", label:{en:"Applicant — Phone number (if no email)", es:"Solicitante — Teléfono (si no tienes email)", fr:"Demandeur — Téléphone (si pas de courriel)"}},
+    {id:"appUCI",   label:{en:"Applicant — UCI / Client ID", es:"Solicitante — UCI / ID de cliente", fr:"Demandeur — IUC / ID client"}, dflt:profile?.uci&&profile.uci!=="none"?profile.uci:"", ph:{en:"Leave blank if unknown", es:"Dejar en blanco si desconoces", fr:"Laisser vide si inconnu"}},
+    {id:"appType",  label:{en:"Type of application", es:"Tipo de solicitud", fr:"Type de demande"}, dflt:"Pre-Removal Risk Assessment (PRRA)"},
+    {id:"repType",  label:{en:"Representative type", es:"Tipo de representante", fr:"Type de représentant"}, type:"select",
+      opts:[
+        {v:"unpaid",  l:{en:"Unpaid — friend, family, or community member", es:"No pagado — amigo/a, familiar o miembro de la comunidad", fr:"Non rémunéré — ami(e), famille ou membre de la communauté"}},
+        {v:"cicc",    l:{en:"Paid — CICC member (immigration consultant)", es:"Pagado — miembro del CICC (consultor de inmigración)", fr:"Rémunéré — membre du CICC (consultant en immigration)"}},
+        {v:"lawyer",  l:{en:"Paid — Lawyer / Canadian law society member", es:"Pagado — abogado/a / miembro de colegio de abogados canadiense", fr:"Rémunéré — avocat(e) / membre d'un barreau canadien"}},
+        {v:"notary",  l:{en:"Paid — Quebec notary", es:"Pagado — notario de Quebec", fr:"Rémunéré — notaire du Québec"}},
+      ]
+    },
+    {id:"repName",    label:{en:"Representative — Full name", es:"Representante — Nombre completo", fr:"Représentant — Nom complet"}, ph:{en:"First name then Last name", es:"Nombre y después apellido", fr:"Prénom puis nom de famille"}},
+    {id:"repMember",  label:{en:"Representative — Membership ID (if paid)", es:"Representante — ID de membresía (si es pagado)", fr:"Représentant — ID d'adhésion (si rémunéré)"}, ph:{en:"Leave blank if unpaid", es:"Dejar en blanco si no pagado", fr:"Laisser vide si non rémunéré"}},
+    {id:"repOrg",     label:{en:"Representative — Firm or organization (optional)", es:"Representante — Firma u organización (opcional)", fr:"Représentant — Cabinet ou organisation (optionnel)"}},
+    {id:"repAddress", label:{en:"Representative — Street address", es:"Representante — Dirección (calle)", fr:"Représentant — Adresse (rue)"}},
+    {id:"repCity",    label:{en:"Representative — City", es:"Representante — Ciudad", fr:"Représentant — Ville"}},
+    {id:"repProvince",label:{en:"Representative — Province / State", es:"Representante — Provincia / Estado", fr:"Représentant — Province / État"}},
+    {id:"repCountry", label:{en:"Representative — Country", es:"Representante — País", fr:"Représentant — Pays"}, dflt:"Canada"},
+    {id:"repPostal",  label:{en:"Representative — Postal / ZIP code", es:"Representante — Código postal", fr:"Représentant — Code postal"}},
+    {id:"repPhone",   label:{en:"Representative — Phone number", es:"Representante — Teléfono", fr:"Représentant — Numéro de téléphone"}},
+    {id:"repEmail",   label:{en:"Representative — Email address", es:"Representante — Correo electrónico", fr:"Représentant — Adresse courriel"}, type:"email"},
   ];
 
-  const printForm = () => {
-    const d = {...data};
-    const repTypeLabel = {unpaid:'Unpaid representative (friend, family, or community member)',cicc:'Paid — CICC member (immigration consultant)',lawyer:'Paid — Lawyer / Canadian law society member',notary:'Paid — Quebec notary (Chambre des notaires du Québec)'}[d.repType||'unpaid']||'';
-    const w = window.open('','_blank');
-    w.document.write(`<!DOCTYPE html><html><head><title>IMM 5476 – Use of a Representative</title>
-    <style>body{font-family:Arial,sans-serif;font-size:11.5px;color:#000;margin:24px;max-width:760px}
-    h1{font-size:15px;border-bottom:2px solid #000;padding-bottom:8px;margin-bottom:6px}
-    .subtitle{font-size:11px;color:#555;margin-bottom:18px}
-    h2{font-size:12px;background:#e0e0e0;padding:5px 10px;margin:16px 0 8px;font-weight:bold}
-    .field{margin-bottom:9px}.label{font-weight:bold;font-size:10.5px;color:#333;margin-bottom:2px}
-    .val{border-bottom:1.5px solid #555;min-height:20px;padding:2px 4px;font-size:12.5px}
-    .sig{border:1px solid #000;height:55px;margin-top:4px}
-    .note{font-size:10px;color:#555;border:1px solid #bbb;padding:10px;margin-top:20px;line-height:1.5}
-    .chk{border:1.5px solid #c00;padding:6px 10px;font-size:11px;color:#c00;margin:10px 0;font-weight:bold}
-    @media print{body{margin:8px}}</style></head><body>
-    <h1>Use of a Representative — IMM 5476 (November 2025)</h1>
-    <div class="subtitle">Government of Canada · Immigration, Refugees and Citizenship Canada (IRCC)</div>
-    <div class="chk">☑ Appointing a representative</div>
-    <h2>Section A — Applicant Information</h2>
-    <div class="field"><div class="label">1. Last name (Surname / Family name) and Given name(s)</div><div class="val">${d.appLast||profile?.lastName||''} &nbsp;&nbsp; ${d.appFirst||profile?.firstName||''}</div></div>
-    <div class="field"><div class="label">2. Date of birth</div><div class="val">${d.appDOB||''}</div></div>
-    <div class="field"><div class="label">3. Email address / Other contact</div><div class="val">${d.appEmail||profile?.email||''}</div></div>
-    <div class="field"><div class="label">4. Type of application submitted</div><div class="val">${d.appType||'Pre-Removal Risk Assessment (PRRA)'}</div></div>
-    <div class="field"><div class="label">5. UCI / Client ID (if known)</div><div class="val">${d.appUCI||''}</div></div>
-    <h2>Section B — Representative Information</h2>
-    <div class="field"><div class="label">6. Representative full name</div><div class="val">${d.repName||''}</div></div>
-    <div class="field"><div class="label">7. Type of representative</div><div class="val">${repTypeLabel}</div></div>
-    <div class="field"><div class="label">Membership / Registration ID (if paid representative)</div><div class="val">${d.repMember||'N/A — Unpaid representative'}</div></div>
-    <div class="field"><div class="label">Organization / Firm</div><div class="val">${d.repOrg||''}</div></div>
-    <div class="field"><div class="label">8. Representative address</div><div class="val">${d.repAddress||''}</div></div>
-    <div class="field"><div class="label">Phone</div><div class="val">${d.repPhone||''}</div></div>
-    <div class="field"><div class="label">Email</div><div class="val">${d.repEmail||''}</div></div>
-    <h2>Section B — Representative Declaration (signed by representative)</h2>
-    <p style="font-size:11px;margin-bottom:8px">I accept to represent the applicant named above and to conduct business on their behalf with Immigration, Refugees and Citizenship Canada (IRCC) and the Canada Border Services Agency (CBSA) in connection with the application identified above.</p>
-    <div class="field"><div class="label">Representative signature</div><div class="sig"></div></div>
-    <div class="field"><div class="label">Date signed</div><div class="val">&nbsp;</div></div>
-    <h2>Section E — Applicant Declaration (signed by applicant)</h2>
-    <p style="font-size:11px;margin-bottom:8px">I authorize the above-named person to act as my representative and to conduct business on my behalf with IRCC and CBSA. I understand that all correspondence from IRCC and CBSA will be sent to my representative and not to me directly.</p>
-    <div class="field"><div class="label">Applicant signature (or typed name)</div><div class="sig"></div></div>
-    <div class="field"><div class="label">Date signed</div><div class="val">&nbsp;</div></div>
-    <div class="note"><strong>IMPORTANT:</strong> This form was pre-filled using the PRRA Guide tool. Verify all information is accurate before signing. Both the applicant and representative must sign. Submit with your PRRA application via Canada Post Connect or by mail to: IRCC – Humanitarian Migration – Vancouver, #300-800 Burrard Street, Vancouver BC V6Z 0B6. Official form: IMM 5476 (11-2025). Verify the latest version at canada.ca.</div>
-    </body></html>`);
-    w.document.close(); setTimeout(()=>w.print(),400);
+  const L = lang==="es"?"es":lang==="fr"?"fr":"en";
+  const T = (obj) => (typeof obj === "string" ? obj : obj?.[L]||obj?.en||"");
+
+  const BASE = import.meta.env.BASE_URL || "/";
+
+  const generatePDF = async () => {
+    setGenerating(true);
+    setStatus(null);
+    try {
+      const { PDFDocument } = await import("pdf-lib");
+
+      // Fetch the official PDF from the public folder
+      const url = BASE.replace(/\/$/, "") + "/imm5476e.pdf";
+      const existingPdfBytes = await fetch(url).then(r => r.arrayBuffer());
+      const pdfDoc = await PDFDocument.load(existingPdfBytes, {ignoreEncryption: true});
+      const form = pdfDoc.getForm();
+
+      // Helper: fill a text field safely
+      const fill = (fieldName, value) => {
+        if(!value) return;
+        try {
+          const field = form.getTextField(fieldName);
+          field.setText(String(value));
+        } catch(e) {
+          // Field may not exist or may have a different type — skip silently
+        }
+      };
+
+      // Section A — Applicant
+      fill(PDF_FIELD_MAP.appLast,  data.appLast  || profile?.lastName  || "");
+      fill(PDF_FIELD_MAP.appFirst, data.appFirst || profile?.firstName || "");
+      fill(PDF_FIELD_MAP.appDOB,   data.appDOB   || "");
+      fill(PDF_FIELD_MAP.appEmail, data.appEmail || "");
+      fill(PDF_FIELD_MAP.appPhone, data.appPhone || "");
+      fill(PDF_FIELD_MAP.appType,  data.appType  || "Pre-Removal Risk Assessment (PRRA)");
+      fill(PDF_FIELD_MAP.appUCI,   data.appUCI   || (profile?.uci && profile.uci !== "none" ? profile.uci : ""));
+
+      // Section B — Representative
+      // Split rep full name into family + given
+      const repNames = splitRepName(data.repName || "");
+      fill(PDF_FIELD_MAP.repLast,     repNames.last);
+      fill(PDF_FIELD_MAP.repFirst,    repNames.first);
+      fill(PDF_FIELD_MAP.repMember,   data.repMember   || "");
+      fill(PDF_FIELD_MAP.repOrg,      data.repOrg      || "");
+      fill(PDF_FIELD_MAP.repAddress,  data.repAddress  || "");
+      fill(PDF_FIELD_MAP.repCity,     data.repCity     || "");
+      fill(PDF_FIELD_MAP.repProvince, data.repProvince || "");
+      fill(PDF_FIELD_MAP.repCountry,  data.repCountry  || "Canada");
+      fill(PDF_FIELD_MAP.repPostal,   data.repPostal   || "");
+      fill(PDF_FIELD_MAP.repPhone,    data.repPhone    || "");
+      fill(PDF_FIELD_MAP.repEmail,    data.repEmail    || "");
+
+      // Select "appointing a representative" radio
+      try {
+        const radio = form.getRadioGroup("IMM_5476[0].Page1[0].RadioButtonList[0]");
+        radio.select("0"); // first option = appointing
+      } catch(e) {}
+
+      // Flatten is optional — keeping editable so user can fill signature fields
+      const pdfBytes = await pdfDoc.save();
+      const blob = new Blob([pdfBytes], {type: "application/pdf"});
+      const downloadUrl = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = downloadUrl;
+      a.download = "IMM_5476_Filled.pdf";
+      a.click();
+      URL.revokeObjectURL(downloadUrl);
+      setStatus("ok");
+    } catch(err) {
+      console.error("PDF generation error:", err);
+      setStatus("error");
+    }
+    setGenerating(false);
+  };
+
+  const labels = {
+    intro:{
+      en:"Fill in the details below, then click the button to download the official IMM 5476 PDF pre-filled with your data. Both you and your representative must sign it by hand before submitting.",
+      es:"Completa los campos y haz clic para descargar el formulario oficial IMM 5476 pre-llenado con tus datos. Tanto tú como tu representante deben firmarlo a mano antes de enviarlo.",
+      fr:"Remplissez les champs ci-dessous puis cliquez pour télécharger le formulaire officiel IMM 5476 pré-rempli avec vos données. Vous et votre représentant devez le signer à la main avant de le soumettre.",
+    },
+    download:{en:"⬇️ Download pre-filled IMM 5476 (official PDF)", es:"⬇️ Descargar IMM 5476 pre-llenado (PDF oficial)", fr:"⬇️ Télécharger IMM 5476 pré-rempli (PDF officiel)"},
+    generating:{en:"Generating PDF...", es:"Generando PDF...", fr:"Génération du PDF..."},
+    ok:{en:"✅ PDF downloaded — sign by hand and include with your application.", es:"✅ PDF descargado — fírmalo a mano e inclúyelo con tu solicitud.", fr:"✅ PDF téléchargé — signez à la main et incluez-le avec votre demande."},
+    err:{en:"❌ Could not generate PDF. Try again or use the browser print version below.", es:"❌ No se pudo generar el PDF. Intenta de nuevo o usa la versión impresa.", fr:"❌ Impossible de générer le PDF. Réessayez ou utilisez la version imprimée."},
+    sign:{en:"After downloading: both you and your representative must sign the form by hand. Leave signature and date fields blank — sign after printing.", es:"Después de descargar: tú y tu representante deben firmar el formulario a mano. Deja los campos de firma en blanco — firma después de imprimir.", fr:"Après le téléchargement: vous et votre représentant devez signer le formulaire à la main. Laissez les champs de signature vides — signez après impression."},
   };
 
   return (
     <div>
-      <div style={{background:'var(--navyl)',borderRadius:12,padding:'14px 18px',marginBottom:18,fontSize:13,color:'var(--navy)',lineHeight:1.65}}>
-        <strong>IMM 5476 — Use of a Representative</strong><br/>
-        Complete the fields below and click Print / Save as PDF. Both you and your representative must sign it by hand before including it with your PRRA application.
+      <div style={{background:"var(--navyl)",borderRadius:12,padding:"14px 18px",marginBottom:18,fontSize:13,color:"var(--navy)",lineHeight:1.65}}>
+        <strong>IMM 5476 — {T({en:"Use of a Representative",es:"Uso de un Representante",fr:"Utilisation d'un représentant"})}</strong><br/>
+        <span style={{opacity:.85}}>{T(labels.intro)}</span>
       </div>
-      <div style={{display:'flex',flexDirection:'column',gap:13}}>
+
+      <div style={{display:"flex",flexDirection:"column",gap:13,marginBottom:22}}>
         {fields.map(f=>(
           <div key={f.id}>
-            <label style={{display:'block',fontSize:11.5,fontWeight:700,color:'var(--ink2)',marginBottom:5,letterSpacing:'0.5px'}}>{f.label}</label>
-            {f.type==='select'
-              ?<select value={data[f.id]||'unpaid'} onChange={e=>onChange(f.id,e.target.value)}
-                  style={{width:'100%',border:'2px solid var(--brd)',borderRadius:8,padding:'10px 12px',fontSize:14,color:'var(--ink)',background:'var(--paper)',outline:'none',fontFamily:'Inter,sans-serif'}}
-                  onFocus={e=>e.target.style.borderColor='var(--navy)'} onBlur={e=>e.target.style.borderColor='var(--brd)'}>
-                  {f.opts.map(o=><option key={o.v} value={o.v}>{o.l}</option>)}
+            <label style={{display:"block",fontSize:11.5,fontWeight:700,color:"var(--ink2)",marginBottom:5,letterSpacing:"0.5px"}}>{T(f.label)}</label>
+            {f.type==="select"
+              ?<select value={data[f.id]||"unpaid"} onChange={e=>onChange(f.id,e.target.value)}
+                  style={{width:"100%",border:"2px solid var(--brd)",borderRadius:8,padding:"10px 12px",fontSize:14,color:"var(--ink)",background:"var(--paper)",outline:"none",fontFamily:"Inter,sans-serif"}}
+                  onFocus={e=>e.target.style.borderColor="var(--navy)"} onBlur={e=>e.target.style.borderColor="var(--brd)"}>
+                  {f.opts.map(o=><option key={o.v} value={o.v}>{T(o.l)}</option>)}
                 </select>
-              :<input type={f.type||'text'} value={data[f.id]||(f.dflt||'')} onChange={e=>onChange(f.id,e.target.value)}
-                  placeholder={f.ph||''}
-                  style={{width:'100%',border:'2px solid var(--brd)',borderRadius:8,padding:'10px 12px',fontSize:14,color:'var(--ink)',background:'var(--paper)',outline:'none',transition:'border-color .2s'}}
-                  onFocus={e=>e.target.style.borderColor='var(--navy)'} onBlur={e=>e.target.style.borderColor='var(--brd)'}/>
+              :<input
+                  type={f.type||"text"}
+                  value={data[f.id]||(f.dflt||"")}
+                  onChange={e=>onChange(f.id,e.target.value)}
+                  placeholder={T(f.ph)||""}
+                  style={{width:"100%",border:"2px solid var(--brd)",borderRadius:8,padding:"10px 12px",fontSize:14,color:"#1c2533",background:"#ffffff",outline:"none",transition:"border-color .2s",WebkitAppearance:"none",appearance:"none",boxSizing:"border-box"}}
+                  onFocus={e=>e.target.style.borderColor="var(--navy)"} onBlur={e=>e.target.style.borderColor="var(--brd)"}/>
             }
           </div>
         ))}
       </div>
-      <Btn onClick={printForm} style={{width:'100%',padding:'14px',marginTop:22,fontSize:15}}>🖨️ Print / Save as PDF</Btn>
-      <p style={{fontSize:12,color:'var(--ink3)',textAlign:'center',marginTop:8,lineHeight:1.5}}>After printing, sign by hand. Your representative must also sign. Then include it with your IMM 5508 application.</p>
+
+      <Btn
+        onClick={generatePDF}
+        disabled={generating}
+        style={{width:"100%",padding:"15px",fontSize:15,marginBottom:10}}>
+        {generating ? T(labels.generating) : T(labels.download)}
+      </Btn>
+
+      {status==="ok"&&(
+        <div style={{background:"var(--tealp)",borderRadius:10,padding:"12px 16px",fontSize:13,color:"var(--teal)",fontWeight:600,marginBottom:10}}>
+          {T(labels.ok)}
+        </div>
+      )}
+      {status==="error"&&(
+        <div style={{background:"var(--redp)",borderRadius:10,padding:"12px 16px",fontSize:13,color:"var(--red)",fontWeight:600,marginBottom:10}}>
+          {T(labels.err)}
+        </div>
+      )}
+
+      <div style={{background:"var(--amberp)",borderRadius:10,padding:"12px 16px",fontSize:12.5,color:"var(--amber)",lineHeight:1.65}}>
+        ✏️ {T(labels.sign)}
+      </div>
     </div>
   );
 }
