@@ -138,8 +138,8 @@ export const STEPS = [
   es:{q:"Necesitamos una breve descripción física para el formulario oficial.",intro:"Estatura, peso y color de ojos — solo para identificación."},
   fr:{q:"Nous avons besoin d'une brève description physique pour le formulaire officiel.",intro:"Taille, poids et couleur des yeux — à des fins d'identification uniquement."},
   subFields:[
-    {id:"height",  en:{label:"Height",ph:"e.g. 165 cm"},es:{label:"Estatura"},fr:{label:"Taille"}},
-    {id:"weight",  en:{label:"Weight",ph:"e.g. 65 kg"},es:{label:"Peso"},fr:{label:"Poids"}},
+    {id:"height",  en:{label:"Height",ph:"e.g. 1.77 m or 5'10\""},        es:{label:"Estatura",ph:"ej. 1.77 m o 177 cm"},      fr:{label:"Taille",ph:"ex. 1.77 m ou 177 cm"}},
+    {id:"weight",  en:{label:"Weight",ph:"e.g. 75 kg or 165 lbs"},        es:{label:"Peso",ph:"ej. 75 kg o 165 lbs"},          fr:{label:"Poids",ph:"ex. 75 kg ou 165 lbs"}},
     {id:"eyeColor",en:{label:"Eye color"},es:{label:"Color de ojos"},fr:{label:"Couleur des yeux"},type:"select",opts:EYE_OPTS},
   ],
 },
