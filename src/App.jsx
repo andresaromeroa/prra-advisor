@@ -309,8 +309,9 @@ const DeadlineBanner = ({deadline,lang}) => {
 
 // ── SUB-FORM FIELD ────────────────────────────────────────────────────────────
 function SubField({field, lang, value, onChange}) {
-  const label = T(field[lang]||field.en, lang)?.label || T(field.en,lang)?.label || "";
-  const ph    = T(field[lang]||field.en, lang)?.ph    || T(field.en,lang)?.ph    || "";
+  const langObj = field[lang] || field.en || {};
+  const label   = langObj.label || "";
+  const ph      = langObj.ph    || "";
   const type  = field.type || "text";
   const inputStyle = {width:"100%",border:"2px solid var(--brd)",borderRadius:8,padding:"10px 12px",fontSize:14,color:"#1a2535",background:"#fff",outline:"none",fontFamily:"inherit"};
 
