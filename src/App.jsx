@@ -1,1892 +1,1054 @@
-import { useState, useEffect, useRef, useReducer, useCallback } from "react";
+import { useState, useEffect, useRef } from "react";
+import { STEPS, PHASES, getActiveSteps, DOC_TYPE_OPTS, MARITAL_OPTS, STATUS_OPTS, TRANSPORT_OPTS, EYE_OPTS, GOV_POSITIONS } from "./steps.js";
+import { fillIMM5508 } from "./fill5508.js";
+
+// ── CONFIG ────────────────────────────────────────────────────────────────────
+const API_KEY  = import.meta.env.VITE_ANTHROPIC_API_KEY || "";
+const BASE_URL = (import.meta.env.BASE_URL || "/").replace(/\/$/, "");
+const PRICE    = "$49 USD";
+const SKEY     = "prra_v3";
 
 // ── STORAGE ───────────────────────────────────────────────────────────────────
-const KEY = 'prra_v1';
-const load = () => { try { return JSON.parse(localStorage.getItem(KEY)||'null'); } catch { return null; } };
-const save = (s) => { try { localStorage.setItem(KEY, JSON.stringify({...s,ts:Date.now()})); } catch {} };
-const clear = () => { try { localStorage.removeItem(KEY); } catch {} };
+const load  = () => { try { return JSON.parse(localStorage.getItem(SKEY)||"null"); } catch { return null; } };
+const save  = s  => { try { localStorage.setItem(SKEY, JSON.stringify({...s,ts:Date.now()})); } catch {} };
+const wipe  = ()  => { try { localStorage.removeItem(SKEY); } catch {} };
 
 // ── DATE UTILS ────────────────────────────────────────────────────────────────
-const addDays = (dateStr, n) => { const d=new Date(dateStr); d.setDate(d.getDate()+n); return d.toISOString().split('T')[0]; };
-const daysLeft = (dl) => { if(!dl) return null; return Math.ceil((new Date(dl)-new Date())/(864e5)); };
-const fmtDate = (s) => { if(!s) return ''; const d=new Date(s+'T12:00:00'); return d.toLocaleDateString('en-CA',{year:'numeric',month:'long',day:'numeric'}); };
+const addDays  = (d,n) => { const x=new Date(d+"T12:00:00"); x.setDate(x.getDate()+n); return x.toISOString().split("T")[0]; };
+const daysLeft = d     => d ? Math.ceil((new Date(d)-new Date())/864e5) : null;
+const fmtDate  = s     => { if(!s) return ""; const d=new Date(s+"T12:00:00"); return d.toLocaleDateString("en-CA",{year:"numeric",month:"long",day:"numeric"}); };
 
-// ── LANGUAGE DATA ─────────────────────────────────────────────────────────────
+// ── TRANSLATION ───────────────────────────────────────────────────────────────
+const T = (obj, lang) => {
+  if(!obj) return "";
+  if(typeof obj === "string") return obj;
+  return obj[lang] || obj.en || "";
+};
+
+// ── LANGUAGES ─────────────────────────────────────────────────────────────────
+const LANG_NAMES = {en:"English",es:"Spanish",fr:"French",pt:"Portuguese",ar:"Arabic",hi:"Hindi",pa:"Punjabi",zh:"Mandarin Chinese",uk:"Ukrainian",ru:"Russian",tr:"Turkish",tl:"Filipino",sw:"Swahili",am:"Amharic",fa:"Persian",ko:"Korean",ro:"Romanian",bn:"Bengali",ta:"Tamil",so:"Somali",ne:"Nepali",ur:"Urdu",si:"Sinhala",ti:"Tigrinya"};
+
 const LANGS = [
-  {k:'en',f:'🇬🇧',l:'English'},{k:'es',f:'🇪🇸',l:'Español'},{k:'fr',f:'🇫🇷',l:'Français'},
-  {k:'pt',f:'🇧🇷',l:'Português'},{k:'ar',f:'🇸🇦',l:'العربية'},{k:'hi',f:'🇮🇳',l:'हिन्दी'},
-  {k:'pa',f:'🇮🇳',l:'ਪੰਜਾਬੀ'},{k:'zh',f:'🇨🇳',l:'中文'},{k:'uk',f:'🇺🇦',l:'Українська'},
-  {k:'ru',f:'🇷🇺',l:'Русский'},{k:'tr',f:'🇹🇷',l:'Türkçe'},{k:'tl',f:'🇵🇭',l:'Filipino'},
-  {k:'sw',f:'🇰🇪',l:'Kiswahili'},{k:'am',f:'🇪🇹',l:'አማርኛ'},{k:'fa',f:'🇮🇷',l:'فارسی'},
-  {k:'ko',f:'🇰🇷',l:'한국어'},{k:'ro',f:'🇷🇴',l:'Română'},{k:'bn',f:'🇧🇩',l:'বাংলা'},
-  {k:'ta',f:'🇱🇰',l:'தமிழ்'},{k:'so',f:'🇸🇴',l:'Soomaali'},{k:'ne',f:'🇳🇵',l:'नेपाली'},
-  {k:'ur',f:'🇵🇰',l:'اردو'},{k:'si',f:'🇱🇰',l:'සිංහල'},{k:'ti',f:'🇪🇷',l:'ትግርኛ'},
+  {k:"en",f:"🇬🇧",l:"English"},{k:"es",f:"🇪🇸",l:"Español"},{k:"fr",f:"🇫🇷",l:"Français"},
+  {k:"pt",f:"🇧🇷",l:"Português"},{k:"ar",f:"🇸🇦",l:"العربية"},{k:"hi",f:"🇮🇳",l:"हिन्दी"},
+  {k:"pa",f:"🇮🇳",l:"ਪੰਜਾਬੀ"},{k:"zh",f:"🇨🇳",l:"中文"},{k:"uk",f:"🇺🇦",l:"Українська"},
+  {k:"ru",f:"🇷🇺",l:"Русский"},{k:"tr",f:"🇹🇷",l:"Türkçe"},{k:"tl",f:"🇵🇭",l:"Filipino"},
+  {k:"sw",f:"🇰🇪",l:"Kiswahili"},{k:"am",f:"🇪🇹",l:"አማርኛ"},{k:"fa",f:"🇮🇷",l:"فارسی"},
+  {k:"ko",f:"🇰🇷",l:"한국어"},{k:"ro",f:"🇷🇴",l:"Română"},{k:"bn",f:"🇧🇩",l:"বাংলা"},
+  {k:"ta",f:"🇱🇰",l:"தமிழ்"},{k:"so",f:"🇸🇴",l:"Soomaali"},{k:"ne",f:"🇳🇵",l:"नेपाली"},
+  {k:"ur",f:"🇵🇰",l:"اردو"},{k:"si",f:"🇱🇰",l:"සිංහල"},{k:"ti",f:"🇪🇷",l:"ትግርኛ"},
 ];
 
 const HELLOS = [
-  {w:'Help',l:'English'},{w:'Ayuda',l:'Español'},{w:'Aide',l:'Français'},{w:'Ajuda',l:'Português'},
-  {w:'مساعدة',l:'العربية'},{w:'मदद',l:'हिन्दी'},{w:'ਮਦਦ',l:'ਪੰਜਾਬੀ'},{w:'帮助',l:'中文'},
-  {w:'Допомога',l:'Українська'},{w:'Помощь',l:'Русский'},{w:'Yardım',l:'Türkçe'},
-  {w:'Tulong',l:'Filipino'},{w:'Usaidizi',l:'Kiswahili'},{w:'ድጋፍ',l:'አማርኛ'},
-  {w:'کمک',l:'فارسی'},{w:'도움',l:'한국어'},{w:'Ajutor',l:'Română'},{w:'সাহায্য',l:'বাংলা'},
-  {w:'உதவி',l:'தமிழ்'},{w:'Gargaar',l:'Soomaali'},{w:'मद्दत',l:'नेपाली'},
+  {w:"Help",l:"English"},{w:"Ayuda",l:"Español"},{w:"Aide",l:"Français"},{w:"Ajuda",l:"Português"},
+  {w:"مساعدة",l:"العربية"},{w:"मदद",l:"हिन्दी"},{w:"ਮਦਦ",l:"ਪੰਜਾਬੀ"},{w:"帮助",l:"中文"},
+  {w:"Допомога",l:"Українська"},{w:"Помощь",l:"Русский"},{w:"Yardım",l:"Türkçe"},
+  {w:"Tulong",l:"Filipino"},{w:"Usaidizi",l:"Kiswahili"},{w:"ድጋፍ",l:"አማርኛ"},
+  {w:"کمک",l:"فارسی"},{w:"도움",l:"한국어"},{w:"Ajutor",l:"Română"},{w:"সাহায্য",l:"বাংলা"},
+  {w:"உதவி",l:"தமிழ்"},{w:"Gargaar",l:"Soomaali"},{w:"मद्दत",l:"नेपाली"},
 ];
 
-const LANGNAMES = {en:'English',es:'Spanish',fr:'French',pt:'Portuguese',ar:'Arabic',hi:'Hindi',pa:'Punjabi',zh:'Mandarin Chinese',uk:'Ukrainian',ru:'Russian',tr:'Turkish',tl:'Filipino/Tagalog',sw:'Swahili',am:'Amharic',fa:'Persian/Farsi',ko:'Korean',ro:'Romanian',bn:'Bengali',ta:'Tamil',so:'Somali',ne:'Nepali',ur:'Urdu',si:'Sinhala',ti:'Tigrinya'};
-
-// ── UI TRANSLATIONS ───────────────────────────────────────────────────────────
+// ── UI STRINGS ────────────────────────────────────────────────────────────────
 const UI = {
-  hello:{en:'Hello',es:'Hola',fr:'Bonjour',pt:'Olá',ar:'مرحباً',hi:'नमस्ते',pa:'ਸਤਿ ਸ੍ਰੀ ਅਕਾਲ',zh:'你好',uk:'Привіт',ru:'Привет',tr:'Merhaba',tl:'Kamusta',sw:'Habari',am:'ሰላም',fa:'سلام',ko:'안녕하세요',ro:'Bună',bn:'হ্যালো',ta:'வணக்கம்',so:'Salaan',ne:'नमस्कार',ur:'سلام',si:'හෙලෝ',ti:'ሰላም'},
-  firstPRRA:{en:'First PRRA application',es:'Primera solicitud PRRA',fr:'Première demande PRRA',pt:'Primeira solicitação PRRA',ar:'طلب PRRA الأول',hi:'पहला PRRA आवेदन',zh:'第一次PRRA申请',uk:'Перша заявка PRRA',ru:'Первое заявление PRRA',tr:'İlk PRRA başvurusu',ko:'첫 번째 PRRA 신청',ro:'Prima cerere PRRA'},
-  repeatPRRA:{en:'Repeat PRRA application',es:'Segunda solicitud PRRA',fr:'Deuxième demande PRRA',pt:'Segunda solicitação PRRA',ar:'طلب PRRA متكرر',hi:'दोबारा PRRA आवेदन',zh:'重复PRRA申请',uk:'Повторна заявка PRRA',ru:'Повторное заявление PRRA',tr:'Tekrar PRRA başvurusu',ko:'반복 PRRA 신청',ro:'A doua cerere PRRA'},
-  day:{en:'day',es:'día',fr:'jour',pt:'dia',ar:'يوم',hi:'दिन',zh:'天',uk:'день',ru:'день',tr:'gün',tl:'araw',sw:'siku',ko:'일',ro:'zi'},
-  days:{en:'days',es:'días',fr:'jours',pt:'dias',ar:'أيام',hi:'दिन',zh:'天',uk:'днів',ru:'дней',tr:'gün',tl:'araw',sw:'siku',ko:'일',ro:'zile'},
-  deadlinePassed:{en:'DEADLINE PASSED — Contact CBSA immediately',es:'PLAZO VENCIDO — Contacta a la CBSA de inmediato',fr:'DATE LIMITE DÉPASSÉE — Contactez la CBSA immédiatement',pt:'PRAZO EXPIRADO — Contate a CBSA imediatamente',ar:'انتهى الموعد النهائي — اتصل بـ CBSA فوراً',hi:'समयसीमा बीत गई — तुरंत CBSA से संपर्क करें',zh:'截止日期已过 — 立即联系CBSA',uk:'ТЕРМІН ВИЙШОВ — Негайно зверніться до CBSA',ru:'СРОК ИСТЁК — Немедленно свяжитесь с CBSA',tr:'SON TARİH GEÇTİ — CBSA ile hemen iletişime geçin',ko:'기한 초과 — 즉시 CBSA에 연락하세요',ro:'TERMEN DEPĂȘIT — Contactați CBSA imediat'},
-  urgent:{en:'URGENT — Act today',es:'URGENTE — Actúa hoy',fr:'URGENT — Agissez aujourd\'hui',pt:'URGENTE — Aja hoje',ar:'عاجل — تصرف اليوم',hi:'जरूरी — आज ही कार्य करें',zh:'紧急 — 今天就行动',uk:'ТЕРМІНОВО — Дійте сьогодні',ru:'СРОЧНО — Действуйте сегодня',tr:'ACİL — Bugün harekete geçin',ko:'긴급 — 오늘 행동하세요',ro:'URGENT — Acționați astăzi'},
-  approaching:{en:'Deadline approaching',es:'Fecha límite próxima',fr:'Date limite proche',pt:'Prazo se aproximando',ar:'الموعد النهائي يقترب',hi:'समयसीमा नजदीक',zh:'截止日期临近',uk:'Термін наближається',ru:'Срок приближается',tr:'Son tarih yaklaşıyor',ko:'기한이 다가오고 있습니다',ro:'Termenul limită se apropie'},
-  deadline:{en:'Deadline',es:'Fecha límite',fr:'Date limite',pt:'Prazo',ar:'الموعد النهائي',hi:'समयसीमा',zh:'截止日期',uk:'Термін',ru:'Срок',tr:'Son tarih',ko:'기한',ro:'Termen'},
-  everyDay:{en:'Every day counts. Submit your application as soon as possible.',es:'Cada día cuenta. Envía tu solicitud lo antes posible.',fr:'Chaque jour compte. Soumettez votre demande dès que possible.',pt:'Cada dia conta. Envie sua solicitação o mais rápido possível.',ar:'كل يوم مهم. قدم طلبك في أقرب وقت ممكن.',hi:'हर दिन मायने रखता है। जल्द से जल्द आवेदन करें।',zh:'每一天都很重要。请尽快提交您的申请。',uk:'Кожен день важливий. Подайте заявку якомога швидше.',ru:'Каждый день важен. Подайте заявку как можно скорее.',tr:'Her gün önemli. Başvurunuzu mümkün olan en kısa sürede gönderin.',ko:'매일이 중요합니다. 가능한 빨리 신청서를 제출하세요.',ro:'Fiecare zi contează. Trimiteți cererea cât mai curând posibil.'},
-  complete:{en:'% complete',es:'% completado',fr:'% complété',pt:'% concluído',ar:'% مكتمل',hi:'% पूर्ण',zh:'% 完成',uk:'% завершено',ru:'% выполнено',tr:'% tamamlandı',ko:'% 완료',ro:'% complet'},
-  welcomeBack:{en:'Welcome back',es:'Bienvenido/a de vuelta',fr:'Bon retour',pt:'Bem-vindo(a) de volta',ar:'مرحباً بعودتك',hi:'वापस स्वागत है',pa:'ਵਾਪਸ ਸੁਆਗਤ ਹੈ',zh:'欢迎回来',uk:'З поверненням',ru:'С возвращением',tr:'Hoş geldiniz',tl:'Maligayang pagbabalik',sw:'Karibu tena',am:'እንኳን ደህና ተመለሱ',fa:'خوش آمدید',ko:'다시 오신 것을 환영합니다',ro:'Bine ai revenit',bn:'ফিরে আসার স্বাগতম',ta:'மீண்டும் வரவேற்கிறோம்',so:'Soo dhawoow dib',ne:'फिर स्वागत छ',ur:'دوبارہ خوش آمدید',si:'නැවත සාදරයෙන් පිළිගනිමු',ti:'ናብ ድሕሪ ምምለስካ ንቕበለካ'},
-  progressSaved:{en:'Your progress is saved.',es:'Tu progreso está guardado.',fr:'Votre progression est sauvegardée.',pt:'Seu progresso está salvo.',ar:'تم حفظ تقدمك.',hi:'आपकी प्रगति सहेजी गई है।',zh:'您的进度已保存。',uk:'Ваш прогрес збережено.',ru:'Ваш прогресс сохранён.',tr:'İlerlemeniz kaydedildi.',tl:'Nai-save ang iyong progreso.',sw:'Maendeleo yako yamehifadhiwa.',ko:'진행 상황이 저장되었습니다.',ro:'Progresul tău este salvat.'},
-  continueBtn:{en:'Continue where I left off →',es:'Continuar donde lo dejé →',fr:'Continuer où j\'en étais →',pt:'Continuar de onde parei →',ar:'استمرار من حيث توقفت →',hi:'जहाँ छोड़ा था वहाँ से जारी रखें →',zh:'从上次离开的地方继续 →',uk:'Продовжити з місця зупинки →',ru:'Продолжить с места остановки →',tr:'Kaldığım yerden devam et →',ko:'중단한 곳에서 계속 →',ro:'Continuați de unde am rămas →'},
-  restartBtn:{en:'Start over (new application)',es:'Empezar de nuevo (nueva solicitud)',fr:'Recommencer (nouvelle demande)',pt:'Recomeçar (nova solicitação)',ar:'البدء من جديد (طلب جديد)',hi:'फिर से शुरू करें (नया आवेदन)',zh:'重新开始（新申请）',uk:'Почати знову (нова заявка)',ru:'Начать заново (новое заявление)',tr:'Yeniden başla (yeni başvuru)',ko:'다시 시작 (새 신청)',ro:'Începe de la capăt (cerere nouă)'},
-  daysRemaining:{en:'days remaining',es:'días restantes',fr:'jours restants',pt:'dias restantes',ar:'أيام متبقية',hi:'दिन शेष',zh:'天剩余',uk:'днів залишилось',ru:'дней осталось',tr:'gün kaldı',ko:'일 남음',ro:'zile rămase'},
-  dayRemaining:{en:'day remaining',es:'día restante',fr:'jour restant',pt:'dia restante',ar:'يوم متبق',hi:'दिन शेष',zh:'天剩余',uk:'день залишився',ru:'день остался',tr:'gün kaldı',ko:'일 남음',ro:'zi rămasă'},
-  startOver:{en:'Start over',es:'Empezar de nuevo',fr:'Recommencer',pt:'Recomeçar',ar:'ابدأ من جديد',hi:'फिर से शुरू करें',zh:'重新开始',uk:'Почати знову',ru:'Начать заново',tr:'Yeniden başla',ko:'다시 시작',ro:'Începe de la capăt'},
-  back:{en:'← Back',es:'← Atrás',fr:'← Retour',pt:'← Voltar',ar:'← رجوع',hi:'← वापस',zh:'← 返回',uk:'← Назад',ru:'← Назад',tr:'← Geri',ko:'← 뒤로',ro:'← Înapoi'},
-  disclaimer:{
-    en:'This tool provides information and process guidance only — not legal or immigration advice. For cases involving serious criminality, security inadmissibility, or other complex situations, consult a registered RCIC or immigration lawyer. Always verify information at',
-    es:'Esta herramienta proporciona solo información y guía del proceso — no asesoría legal ni migratoria. Para casos con criminalidad grave u otras situaciones complejas, consulta un RCIC registrado o un abogado de inmigración. Verifica siempre la información en',
-    fr:'Cet outil fournit uniquement des informations et des conseils de procédure — pas de conseils juridiques ou d\'immigration. Pour les cas complexes, consultez un RCIC enregistré ou un avocat en immigration. Vérifiez toujours les informations sur',
-    pt:'Esta ferramenta fornece apenas informações e orientação de processo — não aconselhamento jurídico ou de imigração. Para casos complexos, consulte um RCIC registrado ou advogado de imigração. Sempre verifique as informações em',
-    ar:'تقدم هذه الأداة معلومات وإرشادات فقط — وليس مشورة قانونية. للحالات المعقدة، استشر RCIC مسجلاً أو محامياً. تحقق دائماً من المعلومات على',
-    hi:'यह टूल केवल जानकारी और मार्गदर्शन देता है — कानूनी सलाह नहीं। जटिल मामलों के लिए पंजीकृत RCIC या वकील से सलाह लें। हमेशा जानकारी की जांच करें',
-    zh:'本工具仅提供信息和流程指导，不构成法律建议。复杂情况请咨询注册RCIC或移民律师。始终在以下网址验证信息：',
-    uk:'Цей інструмент надає лише інформацію — не юридичні поради. Для складних справ зверніться до зареєстрованого RCIC або адвоката. Завжди перевіряйте інформацію на',
-    ru:'Этот инструмент предоставляет только информацию — не юридические советы. По сложным делам проконсультируйтесь с RCIC или адвокатом. Всегда проверяйте информацию на',
-    ko:'이 도구는 정보와 절차 안내만 제공하며, 법률 조언이 아닙니다. 복잡한 경우 등록된 RCIC 또는 변호사와 상담하세요. 항상 다음에서 정보를 확인하세요:',
-    ro:'Acest instrument oferă doar informații — nu sfaturi juridice. Pentru cazuri complexe, consultați un RCIC înregistrat sau avocat. Verificați întotdeauna informațiile pe',
-  },
+  continue:     {en:"Continue →",        es:"Continuar →",          fr:"Continuer →"},
+  back:         {en:"← Back",            es:"← Atrás",              fr:"← Retour"},
+  submit:       {en:"Submit my answer",  es:"Enviar mi respuesta",  fr:"Soumettre ma réponse"},
+  skip:         {en:"Skip this question",es:"Saltar esta pregunta",  fr:"Ignorer cette question"},
+  analyzing:    {en:"Reading your answer…",es:"Leyendo tu respuesta…",fr:"Lecture de votre réponse…"},
+  addDetail:    {en:"Add this detail",   es:"Agregar este detalle",  fr:"Ajouter ce détail"},
+  skipFollowUp: {en:"Continue — my answer is complete",es:"Continuar — mi respuesta está completa",fr:"Continuer — ma réponse est complète"},
+  caseStrength: {en:"Case strength",     es:"Fortaleza del caso",    fr:"Force du dossier"},
+  stepOf:       {en:"Step",              es:"Paso",                  fr:"Étape"},
+  of:           {en:"of",               es:"de",                    fr:"sur"},
+  deadline:     {en:"Your deadline",     es:"Tu fecha límite",       fr:"Votre date limite"},
+  daysLeft:     {en:"days remaining",    es:"días restantes",        fr:"jours restants"},
+  selectAll:    {en:"Select all that apply",es:"Selecciona todo lo que aplique",fr:"Sélectionnez tout ce qui s'applique"},
+  noneApply:    {en:"None of these apply",es:"Ninguno de estos aplica",fr:"Aucun de ces éléments ne s'applique"},
+  startOver:    {en:"Start over",        es:"Empezar de nuevo",      fr:"Recommencer"},
+  reviewTitle:  {en:"Review before we prepare your documents",es:"Revisa antes de preparar tus documentos",fr:"Vérification avant de préparer vos documents"},
+  confirmReady: {en:"Everything looks correct — prepare my documents",es:"Todo está correcto — preparar mis documentos",fr:"Tout est correct — préparer mes documents"},
+  editAnswers:  {en:"I need to change something",es:"Necesito cambiar algo",fr:"Je dois changer quelque chose"},
+  generating:   {en:"Preparing your application…",es:"Preparando tu solicitud…",fr:"Préparation de votre demande…"},
+  payTitle:     {en:"Your application is ready",es:"Tu solicitud está lista",fr:"Votre demande est prête"},
+  paySub:       {en:"3 documents have been prepared. Pay to unlock and download them.",es:"Se han preparado 3 documentos. Paga para desbloquearlos y descargarlos.",fr:"3 documents ont été préparés. Payez pour les déverrouiller et les télécharger."},
+  payBtn:       {en:"Pay Now — "+PRICE,  es:"Pagar Ahora — "+PRICE, fr:"Payer Maintenant — "+PRICE},
+  successTitle: {en:"Payment successful — download your documents",es:"Pago exitoso — descarga tus documentos",fr:"Paiement réussi — téléchargez vos documents"},
+  successSub:   {en:"Download all 3, print, sign by hand, and submit before your deadline.",es:"Descarga los 3, imprime, firma a mano y envía antes de tu fecha límite.",fr:"Téléchargez les 3, imprimez, signez à la main et soumettez avant votre date limite."},
+  doc1:         {en:"Written Submission Letter",es:"Carta de Argumentación",fr:"Lettre d'observations écrites"},
+  doc2:         {en:"IMM 5476 — Use of a Representative",es:"IMM 5476 — Uso de Representante",fr:"IMM 5476 — Utilisation d'un représentant"},
+  doc3:         {en:"IMM 5508 — PRRA Application",es:"IMM 5508 — Solicitud PRRA",fr:"IMM 5508 — Demande PRRA"},
+  download:     {en:"Download",es:"Descargar",fr:"Télécharger"},
+  sign:         {en:"Sign by hand before submitting",es:"Firma a mano antes de enviar",fr:"Signer à la main avant de soumettre"},
+  resumeTitle:  {en:"Welcome back",es:"Bienvenido/a de vuelta",fr:"Bon retour"},
+  resumeSub:    {en:"You have a saved application. Continue where you left off?",es:"Tienes una solicitud guardada. ¿Continuar donde lo dejaste?",fr:"Vous avez une demande sauvegardée. Continuer là où vous en étiez?"},
+  resumeYes:    {en:"Continue my application",es:"Continuar mi solicitud",fr:"Continuer ma demande"},
+  resumeNo:     {en:"Start fresh (delete saved progress)",es:"Empezar de nuevo (borrar progreso guardado)",fr:"Recommencer (supprimer la progression sauvegardée)"},
+  saveItem:     {en:"Save",es:"Guardar",fr:"Enregistrer"},
+  addAnother:   {en:"Add another",es:"Agregar otro/a",fr:"En ajouter un(e) autre"},
+  removeItem:   {en:"Remove",es:"Eliminar",fr:"Supprimer"},
+  itemsAdded:   {en:"added",es:"agregado(s)",fr:"ajouté(s)"},
+  required:     {en:"Required",es:"Requerido",fr:"Requis"},
 };
 
-// ── SYSTEM PROMPT ─────────────────────────────────────────────────────────────
-const buildSys = (lang, profile) => {
-  const l = LANGNAMES[lang] || 'English';
-  const name = (profile?.firstName||'?') + ' ' + (profile?.lastName||'');
-  const prraType = profile?.prraType||'full';
-  const restricted = prraType==='restricted';
-  return `You are a warm, compassionate PRRA (Pre-Removal Risk Assessment) guide helping people in Canada who face removal. Respond ALWAYS in ${l}. Use simple, clear language. Avoid legal jargon. Be empathetic but precise.
-
-USER PROFILE: Name: ${name} | Country: ${profile?.country||'?'} | UCI: ${profile?.uci||'none'} | First PRRA: ${profile?.isFirstPRRA?'Yes':'No'} | Deadline: ${profile?.deadline||'?'} | Method: ${profile?.notificationMethod||'?'} | Criminal record: ${profile?.criminalRecord||'none'} | Claim rejected by IRB: ${profile?.claimRejected||'no'} | Risk type: ${profile?.riskType||'unknown'} | Family members: ${profile?.familyMembers||'alone'} | PRRA Type: ${restricted?'RESTRICTED (s.112(3)) — only s.97 applies':'FULL (s.112(1)) — both s.96 and s.97 apply'}
-
-CRITICAL FOR THIS USER: ${restricted?'This is a RESTRICTED PRRA under s.112(3). You CANNOT argue persecution (s.96). Only torture, risk to life, and cruel treatment (s.97) can be assessed. Do NOT guide them to write about persecution grounds. Focus exclusively on s.97 arguments. Strongly recommend consulting an RCIC or immigration lawyer given the complexity.':'This is a FULL PRRA. Both s.96 (persecution) and s.97 (torture/life risk/cruel treatment) can be argued.'} ${profile?.claimRejected==='yes'?'IMPORTANT: Their refugee claim was previously rejected by the IRB. Under IRPA s.113(a), they can ONLY submit NEW evidence — evidence that arose after the rejection or was not reasonably available before. Remind them of this every time they discuss evidence.':''}
-
-CANADIAN LAW — IRPA SECTIONS 96, 97, 112, 113:
-
-IRPA s.96 — CONVENTION REFUGEE (Full PRRA only): Person with well-founded fear of persecution based on: race, religion, nationality, membership in a particular social group, or political opinion — outside their country of nationality and unable/unwilling to seek its protection. Requires nexus between risk and one of these 5 grounds. This is the Geneva Convention definition incorporated into Canadian law.
-
-IRPA s.97 — PERSON IN NEED OF PROTECTION (ALL types of PRRA): Person whose removal would subject them PERSONALLY to: (a) danger of torture (Convention Against Torture Art.1, requires state involvement); OR (b) risk to life or cruel and unusual treatment/punishment IF: risk exists in every part of the country, not faced generally by others, not inherent to lawful sanctions, and person cannot seek country protection.
-
-TWO TYPES OF PRRA (CRITICAL):
-1. FULL PRRA (s.112(1)): Most applicants. Assessed against BOTH s.96 (persecution) AND s.97 (torture/life risk/cruel treatment). Positive result = full refugee protection = can apply for Permanent Residence.
-2. RESTRICTED PRRA (s.112(3)): Applies to persons inadmissible for: security, human/international rights violations, organized criminality, or serious criminality (10+ year max sentence offence OR sentenced to 2+ years in Canada). Assessed ONLY against s.97 — NOT s.96. Positive result = only stays removal order, does NOT confer refugee protection.
-
-IRPA s.113 EVIDENCE RULES: Failed refugee claimants — ONLY new evidence allowed (arose after rejection, not previously available, or could not reasonably have been presented). Hearing only if credibility requires oral testimony.
-
-NON-REFOULEMENT (s.115): Canada cannot return anyone to a country where they face torture, death, or cruel treatment — absolute obligation under international law.
-
-PRRA PROCESS (canada.ca 2025):
-- Deadlines: 15 days (in person notification) or 22 days (by mail). Missing = deportation.
-- 12-month wait after negative IRB/PRRA decision. Exceptions: Iran, Venezuela, West Bank/Gaza, Afghanistan, Myanmar, Belarus — verify current list at canada.ca.
-- First PRRA: automatic stay of removal. Repeat PRRA: NO automatic stay.
-- Leaving Canada while waiting = application abandoned = rejected.
-- Work permit: First PRRA + timely submission = eligible. Repeat PRRA = not eligible.
-- Health: Interim Federal Health Program (IFHP) may apply.
-- Forms: IMM 5508 (given by CBSA, not downloadable), IMM 5476 (representative), IMM 5475 (info release).
-- THE 5 RISK QUESTIONS: (1) Why at risk if returned? (2) What kind of risk? (3) How does it affect you DIRECTLY and PERSONALLY? (4) Internal flight alternative — could you escape by moving within your country? (5) How does your situation compare to the general population?
-- Submit via Canada Post Connect (online, recommended) or mail to IRCC Humanitarian Migration Vancouver, #300-800 Burrard St, Vancouver BC V6Z 0B6.
-- Documents must be in English or French. Every other language needs certified translation + translator declaration. Family cannot translate.
-- Hearing: Only if credibility issue. Virtual via Microsoft Teams. Miss 2nd hearing = abandoned = deportation.
-- Positive full PRRA = protected person, apply for PR. Positive restricted = removal stayed only. Negative = must leave; Federal Court review possible but must still leave unless stay granted.
-- Cost: Submitting the PRRA application to the government (IRCC) is FREE — there is no government filing fee.
-
-COUNTRY CONDITION SOURCES (cite these when users ask about their country):
-- IRB Country Documentation: irb.gc.ca
-- EUAA country guidance: euaa.europa.eu
-- ACAPS humanitarian analysis: acaps.org
-- SIPRI armed conflict/weapons: sipri.org
-- EIU Democracy Index 2025: eiu.com
-- ECOI country of origin info: ecoi.net
-- Prison Insider (detention conditions): prison-insider.com
-- Amnesty International, Human Rights Watch for persecution evidence
-- UNHCR country guidance
-
-DISCLAIMER: You provide information only — NOT legal advice. For serious criminality, security inadmissibility, or complex cases: recommend RCIC at college-ic.ca or licensed immigration lawyer. Never guarantee outcomes.
-
-Respond in 3-5 paragraphs or bullet points. Be specific to the user profile. Cite canada.ca when uncertain.`;
-};
-
-// ── API ───────────────────────────────────────────────────────────────────────
-const API_KEY = import.meta.env.VITE_ANTHROPIC_API_KEY || '';
-
-const callAPI = async (messages, sys) => {
-  const r = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': API_KEY,
-      'anthropic-version': '2023-06-01',
-      'anthropic-dangerous-direct-browser-access': 'true',
-    },
-    body: JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1200,system:sys,messages})
+// ── CLAUDE API ────────────────────────────────────────────────────────────────
+async function callClaude(messages, system, maxTokens=800) {
+  const r = await fetch("https://api.anthropic.com/v1/messages", {
+    method:"POST",
+    headers:{"Content-Type":"application/json","x-api-key":API_KEY,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},
+    body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:maxTokens,system,messages}),
   });
   const d = await r.json();
   if(d.error) throw new Error(d.error.message);
-  return d.content?.[0]?.text || '';
-};
+  return d.content?.[0]?.text || "";
+}
 
-// ── GLOBAL STYLE ──────────────────────────────────────────────────────────────
+function buildSys(answers, lang) {
+  const ln = LANG_NAMES[lang] || "English";
+  const restricted = answers.criminalRecord === "serious";
+  return `You are a compassionate expert PRRA (Pre-Removal Risk Assessment) advisor helping a ${answers.country||"unknown"} national stay in Canada. Respond ALWAYS in ${ln}. Use simple, warm, encouraging language.
+
+LEGAL CONTEXT:
+PRRA type: ${restricted?"RESTRICTED (s.112(3)) — only s.97 torture/life risk, NOT s.96 persecution":"FULL — both s.96 (persecution) and s.97 (torture/life risk/cruel treatment)"}
+Country: ${answers.country||"unknown"}
+Previous claim rejected: ${answers.claimRejected==="yes"?"YES — only NEW evidence allowed (IRPA s.113a)":"No"}
+
+IRPA s.96: Persecution based on race, religion, nationality, political opinion, or membership in a particular social group. Nexus to one of these 5 grounds required.
+IRPA s.97: (a) Danger of torture (requires state involvement) OR (b) risk to life / cruel treatment — must be personal, nationwide, not faced by general population, not from lawful sanctions.
+
+Be specific, practical, and encouraging. Reference country conditions from EUAA, ACAPS, SIPRI, IRB, HRW, Amnesty as relevant.`;
+}
+
+async function getStoryFeedback(answer, qKey, answers, lang) {
+  const qLabels = {
+    why_danger:"Why would you be in danger if returned?",
+    risk_type:"What kind of danger would you face?",
+    personal_risk:"Why are YOU specifically targeted?",
+    internal_flight:"Could you escape by moving elsewhere in your country?",
+    general_risk:"How is your situation different from the general population?",
+    protection_sought:"Did you seek protection from authorities? Why or why not?",
+  };
+  const sys = buildSys(answers, lang);
+  const prompt = `The applicant answered this PRRA question:
+Question: ${qLabels[qKey]||qKey}
+Answer: "${answer}"
+
+Analyze this answer for its legal strength in a PRRA application.
+Return ONLY valid JSON (no markdown, no preamble):
+{
+  "feedback": "One warm sentence (max 35 words) noting what is legally significant in their answer",
+  "followUp": "One specific question (max 25 words) to get a detail that would strengthen the case — or null if answer is already strong",
+  "strength": 7,
+  "tip": "One practical tip (max 25 words) about what would most improve this answer — or null"
+}`;
+  try {
+    const raw = await callClaude([{role:"user",content:prompt}], sys, 500);
+    return JSON.parse(raw.replace(/```json|```/g,"").trim());
+  } catch {
+    return {feedback:"Thank you for sharing that.", followUp:null, strength:5, tip:null};
+  }
+}
+
+async function generateDocuments(answers, lang) {
+  const ln = LANG_NAMES[lang] || "English";
+  const sys = buildSys(answers, lang);
+  const restricted = answers.criminalRecord === "serious";
+
+  const prompt = `Generate complete PRRA application documents for:
+Name: ${answers.firstName||""} ${answers.lastName||""}
+Country: ${answers.country||""}
+PRRA Type: ${restricted?"Restricted — s.97 only":"Full — s.96 + s.97"}
+Previous claim rejected: ${answers.claimRejected==="yes"?"Yes":"No"}
+
+Story answers:
+1. Why in danger: ${answers.storyDanger||"Not provided"}
+2. Type of risk: ${answers.storyRiskType||"Not provided"}
+3. Personal risk: ${answers.storyPersonal||"Not provided"}
+4. Internal flight: ${answers.storyInternal||"Not provided"}
+5. Different from population: ${answers.storyGeneral||"Not provided"}
+6. Protection sought: ${answers.protectionSought||"Not provided"}
+
+Supporting documents the applicant has: ${(answers.documents||[]).join(", ")||"None specified"}
+
+Return ONLY valid JSON:
+{
+  "letter": "Complete formal PRRA submission letter in English, starting with Dear Officer, 600-900 words, addresses all 5 PRRA questions with legal references to IRPA s.96/s.97 as appropriate",
+  "incidents": "Chronological narrative for Form IMM 5508 Section E Question 50 — all significant incidents that caused the applicant to seek protection, 200-300 words, formal tone, in English",
+  "protection": "Answer for IMM 5508 Question 51 — what protection was sought from home country authorities and why, or why no protection was sought, 100-150 words, formal English",
+  "docSupport": ["How document 1 supports the claim (30 words)", "How document 2 supports the claim (30 words)", "How document 3 supports the claim (30 words)", "How document 4 supports the claim (30 words)", "How document 5 supports the claim (30 words)"]
+}`;
+
+  try {
+    const raw = await callClaude([{role:"user",content:prompt}], sys, 3000);
+    return JSON.parse(raw.replace(/```json|```/g,"").trim());
+  } catch(e) {
+    return {
+      letter:`Dear Officer,\n\nThis is the Pre-Removal Risk Assessment submission for ${answers.firstName||""} ${answers.lastName||""} from ${answers.country||""}.\n\n[Document generation encountered an error. Please try again.]\n\nRespectfully submitted.`,
+      incidents:answers.storyDanger||"",
+      protection:answers.protectionSought||"",
+      docSupport:[],
+    };
+  }
+}
+
+// ── IMM 5476 PDF FILL ─────────────────────────────────────────────────────────
+async function fillIMM5476(answers) {
+  const {PDFDocument} = await import("pdf-lib");
+  const url = BASE_URL+"/imm5476e.pdf";
+  const bytes = await fetch(url).then(r=>r.arrayBuffer());
+  const pdf = await PDFDocument.load(bytes,{ignoreEncryption:true});
+  const form = pdf.getForm();
+  const fill = (name,val) => { try { form.getTextField(name).setText(String(val||"")); } catch {} };
+  fill("IMM_5476[0].Page1[0].SectionA[0].familyName[0]",  answers.lastName||"");
+  fill("IMM_5476[0].Page1[0].SectionA[0].givenName[0]",   answers.firstName||"");
+  fill("IMM_5476[0].Page1[0].SectionA[0].application[0]", "Pre-Removal Risk Assessment (PRRA)");
+  fill("IMM_5476[0].Page1[0].SectionA[0].UCI[0]",         answers.uci&&answers.uci!=="skip"?answers.uci:"");
+  const rn = (answers.repName||"").trim().split(" ");
+  fill("IMM_5476[0].Page1[0].SectionB[0].familyName[0]",  rn[rn.length-1]||"");
+  fill("IMM_5476[0].Page1[0].SectionB[0].givenName[0]",   rn.slice(0,-1).join(" ")||rn[0]||"");
+  fill("IMM_5476[0].Page1[0].SectionB[0].question6[0].questionI[0].membership[0]", answers.repMemberId&&answers.repMemberId!=="skip"?answers.repMemberId:"");
+  fill("IMM_5476[0].Page1[0].SectionB[0].question7[0].organization[0]", answers.repOrg&&answers.repOrg!=="skip"?answers.repOrg:"");
+  fill("IMM_5476[0].Page1[0].SectionB[0].question7[0].phoneNumber[0]", answers.repPhone||"");
+  fill("IMM_5476[0].Page1[0].SectionB[0].question7[0].email[0]",       answers.repEmail||"");
+  if(answers.repAddress){
+    const parts = answers.repAddress.split(",");
+    fill("IMM_5476[0].Page1[0].SectionB[0].question7[0].streetName[0]",  parts[0]||"");
+    fill("IMM_5476[0].Page1[0].SectionB[0].question7[0].city[0]",        parts[1]||"");
+    fill("IMM_5476[0].Page1[0].SectionB[0].question7[0].province[0]",    parts[2]||"");
+    fill("IMM_5476[0].Page1[0].SectionB[0].question7[0].country[0]",     "Canada");
+  }
+  try { form.getRadioGroup("IMM_5476[0].Page1[0].RadioButtonList[0]").select("0"); } catch {}
+  const out = await pdf.save();
+  return new Blob([out],{type:"application/pdf"});
+}
+
+// ── CSS ───────────────────────────────────────────────────────────────────────
 const CSS = `
 *{box-sizing:border-box;margin:0;padding:0}
-html,body{height:100%;background:#f2ede6;font-family:'Inter',sans-serif}
+html,body{height:100%;font-family:Inter,system-ui,sans-serif;background:#f4f0e8;-webkit-font-smoothing:antialiased}
 :root{
-  --ink:#1c2533;--ink2:#4a5568;--ink3:#94a3b8;
+  --bg:#f4f0e8;--paper:#fff;--paper2:#f8f5f0;
   --navy:#1e3a5c;--navy2:#132740;--navyl:#dce8f5;
+  --amber:#c47c2b;--amberp:#fef3cd;
   --teal:#1a5c52;--tealp:#d4ede9;
-  --amber:#b45309;--amberp:#fef3cd;
   --red:#b91c1c;--redp:#fee2e2;
-  --bg:#f2ede6;--paper:#ffffff;--paper2:#f8f5f0;
-  --brd:#e0d8cc;--r:14px;
+  --green:#16803c;--greenp:#dcfce7;
+  --ink:#1a2535;--ink2:#4a5568;--ink3:#94a3b8;
+  --brd:#e0d8cc;
 }
-.fi{animation:fi .3s ease both}@keyframes fi{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
-.sl{animation:sl .25s ease both}@keyframes sl{from{opacity:0;transform:translateX(14px)}to{opacity:1;transform:translateX(0)}}
+@keyframes fi{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+@keyframes sl{from{opacity:0;transform:translateX(16px)}to{opacity:1;transform:translateX(0)}}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes bob{0%,100%{transform:translateX(-50%) translateY(0)}50%{transform:translateX(-50%) translateY(-5px)}}
+.fi{animation:fi .3s ease both}
+.sl{animation:sl .25s ease both}
 button:focus-visible{outline:2px solid var(--navy);outline-offset:2px}
 ::-webkit-scrollbar{width:4px}::-webkit-scrollbar-thumb{background:#c8bfb0;border-radius:2px}
-input,textarea,select{font-family:'Inter',sans-serif}
-@keyframes bob{0%,100%{transform:translateX(-50%) translateY(0)}50%{transform:translateX(-50%) translateY(-5px)}}
+textarea,input,select{font-family:inherit}
 `;
 
-// ── HELPERS ───────────────────────────────────────────────────────────────────
-const Btn = ({children,onClick,disabled,variant='primary',style={}}) => {
-  const base = {fontFamily:'Inter,sans-serif',fontWeight:600,fontSize:14,borderRadius:10,padding:'11px 20px',border:'none',cursor:disabled?'not-allowed':'pointer',transition:'all .18s',...style};
-  const vars = {
-    primary:{background:disabled?'#bbb':'var(--navy)',color:'#fff'},
-    secondary:{background:'none',border:'1.5px solid var(--brd)',color:'var(--ink2)'},
-    danger:{background:'var(--redp)',color:'var(--red)',border:'1.5px solid #fca5a5'},
-    success:{background:'var(--tealp)',color:'var(--teal)',border:'1.5px solid #86c9b8'},
+// ── REUSABLE COMPONENTS ───────────────────────────────────────────────────────
+const Btn = ({children,onClick,disabled,variant="primary",full,style={}}) => {
+  const base={fontFamily:"inherit",fontWeight:600,borderRadius:12,border:"none",cursor:disabled?"not-allowed":"pointer",transition:"all .18s",fontSize:15,padding:"13px 22px",width:full?"100%":undefined,...style};
+  const v={
+    primary:{background:disabled?"#b0b8c1":"var(--navy)",color:"#fff",boxShadow:disabled?"none":"0 2px 10px rgba(30,58,92,.2)"},
+    secondary:{background:"transparent",border:"2px solid var(--brd)",color:"var(--ink2)"},
+    teal:{background:"var(--teal)",color:"#fff"},
+    amber:{background:"var(--amber)",color:"#fff"},
+    danger:{background:"var(--redp)",color:"var(--red)",border:"1.5px solid #fca5a5"},
+    success:{background:"var(--green)",color:"#fff"},
+    ghost:{background:"none",border:"none",color:"var(--ink3)",padding:"6px 12px",fontSize:13,fontWeight:500},
   };
-  return <button onClick={disabled?null:onClick} disabled={disabled} style={{...base,...vars[variant]}}>{children}</button>;
+  return <button onClick={disabled?null:onClick} disabled={disabled} style={{...base,...v[variant]}}>{children}</button>;
 };
 
-// ── COUNTDOWN ─────────────────────────────────────────────────────────────────
-function Countdown({deadline, lang}) {
-  const u = (k) => UI[k]?.[lang] || UI[k]?.en || '';
+const PhaseBar = ({phase, stepNum, totalSteps, lang}) => {
+  const phaseInfo = PHASES.find(p=>p.id===phase) || PHASES[0];
+  const pct = Math.round((stepNum/totalSteps)*100);
+  return (
+    <div style={{background:"var(--navy2)",padding:"12px 20px",flexShrink:0}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:7}}>
+        <span style={{color:"rgba(255,255,255,.6)",fontSize:12,fontWeight:600,textTransform:"uppercase",letterSpacing:"1px"}}>{T(phaseInfo,lang)}</span>
+        <span style={{color:"rgba(255,255,255,.45)",fontSize:12}}>{T(UI.stepOf,lang)} {stepNum} {T(UI.of,lang)} {totalSteps}</span>
+      </div>
+      <div style={{height:4,background:"rgba(255,255,255,.15)",borderRadius:2,overflow:"hidden"}}>
+        <div style={{height:4,width:`${pct}%`,background:phaseInfo.col||"#fff",borderRadius:2,transition:"width .4s"}}/>
+      </div>
+    </div>
+  );
+};
+
+const CaseMeter = ({strength,lang}) => {
+  if(strength===null||strength===undefined) return null;
+  const s = Math.round(strength);
+  const [label,color,bg] = s>=9?["Very Strong","var(--teal)","var(--tealp)"]:s>=7?["Strong","var(--green)","var(--greenp)"]:s>=4?["Building","var(--amber)","var(--amberp)"]:["Developing","var(--red)","var(--redp)"];
+  const labels = {en:label,es:label==="Very Strong"?"Muy Sólido":label==="Strong"?"Sólido":label==="Building"?"Construyendo":"Desarrollando",fr:label==="Very Strong"?"Très Solide":label==="Strong"?"Solide":label==="Building"?"En construction":"En développement"};
+  return (
+    <div style={{background:bg,borderRadius:10,padding:"10px 14px",marginTop:14,display:"flex",alignItems:"center",gap:10}}>
+      <div style={{flex:1}}>
+        <div style={{fontSize:11,fontWeight:700,color,textTransform:"uppercase",letterSpacing:"1px",marginBottom:4}}>{T(UI.caseStrength,lang)}</div>
+        <div style={{height:6,background:"rgba(0,0,0,.08)",borderRadius:3,overflow:"hidden"}}>
+          <div style={{height:6,width:`${s*10}%`,background:color,borderRadius:3,transition:"width .8s"}}/>
+        </div>
+      </div>
+      <div style={{fontFamily:"Georgia,serif",fontSize:17,fontWeight:700,color,flexShrink:0}}>{T(labels,lang)}</div>
+    </div>
+  );
+};
+
+const DeadlineBanner = ({deadline,lang}) => {
+  if(!deadline) return null;
   const n = daysLeft(deadline);
   if(n===null) return null;
-  const [bg,bc,tc] = n<=3?['#fee2e2','#fca5a5','var(--red)']:n<=7?['#fef3cd','#fcd34d','var(--amber)']:['var(--tealp)','#86c9b8','var(--teal)'];
+  const [bg,tc] = n<=3?["var(--red)","#fff"]:n<=7?["var(--amber)","#fff"]:["var(--teal)","#fff"];
   return (
-    <div style={{background:bg,border:`2px solid ${bc}`,borderRadius:14,padding:'18px 22px',marginBottom:18,display:'flex',alignItems:'center',gap:20}}>
-      <div style={{textAlign:'center',flexShrink:0}}>
-        <div style={{fontFamily:'Playfair Display,serif',fontSize:52,lineHeight:1,color:tc,fontWeight:700}}>{Math.max(0,n)}</div>
-        <div style={{color:tc,fontSize:11,fontWeight:700,textTransform:'uppercase',letterSpacing:'1.5px'}}>{n===1?u('day'):u('days')}</div>
-      </div>
-      <div>
-        <div style={{color:tc,fontWeight:700,fontSize:15,marginBottom:3}}>{n<=0?u('deadlinePassed'):n<=3?u('urgent'):n<=7?u('approaching'):u('deadline')}</div>
-        <div style={{color:tc,fontSize:13,opacity:.85}}>{fmtDate(deadline)}</div>
-        {n>0&&n<=15&&<div style={{color:tc,fontSize:12,marginTop:4,opacity:.75}}>{u('everyDay')}</div>}
-      </div>
+    <div style={{background:bg,color:tc,padding:"7px 20px",fontSize:12,fontWeight:600,textAlign:"center",flexShrink:0}}>
+      {T(UI.deadline,lang)}: {fmtDate(deadline)} — {Math.max(0,n)} {T(UI.daysLeft,lang)}
     </div>
   );
-}
-
-
-// ── DISCLAIMER SCREEN ─────────────────────────────────────────────────────────
-const DISCLAIMER_TEXT = {
-  en:{
-    title:"Before you continue",
-    subtitle:"Please read and accept the following",
-    body:[
-      {h:"What this tool is",t:"This is an AI-powered informational guide to help you understand and prepare your Pre-Removal Risk Assessment (PRRA) application. It guides you through the official process as established by the Government of Canada (IRCC and CBSA), helps you organize your documents, meet your deadlines, and prepare your written submissions — following the exact requirements set out in Canadian immigration law."},
-      {h:"What this tool is NOT",t:"This tool does not provide legal advice. It is not a law firm, a Regulated Canadian Immigration Consultant (RCIC), or an immigration lawyer. It does not represent you before IRCC, CBSA, the Immigration and Refugee Board (IRB), or any other government body. It does not guarantee any outcome, approval, or protection."},
-      {h:"Who we are",t:"We are a technology company providing an informational platform. We are not licensed immigration consultants and we do not act as your representative in any immigration proceeding. We use artificial intelligence to help you access publicly available information and organize your application materials — the same information published by the Government of Canada at canada.ca."},
-      {h:"Your responsibility",t:"You are solely responsible for reviewing, completing, signing, and submitting your own application. You must verify that all information is accurate and up to date. The AI may make errors — always double-check important details at canada.ca or with a qualified professional."},
-      {h:"For complex cases",t:"If you are inadmissible on grounds of serious criminality, security, or organized crime; if you have a criminal record; or if your situation is complex — we strongly recommend consulting a Regulated Canadian Immigration Consultant (RCIC) registered at college-ic.ca, or a licensed immigration lawyer."},
-      {h:"Your data",t:"Information you enter is stored locally in your browser only (localStorage). It is not sent to any server, not shared with third parties, and not associated with your identity. You can delete it at any time by clicking 'Start over'."},
-    ],
-    accept:"I have read and understood the above — Continue",
-    decline:"I do not accept — Exit",
-  },
-  es:{
-    title:"Antes de continuar",
-    subtitle:"Lee y acepta lo siguiente",
-    body:[
-      {h:"Qué es esta herramienta",t:"Es una guía informativa impulsada por inteligencia artificial para ayudarte a entender y preparar tu solicitud de Evaluación de Riesgo Previo a la Remoción (PRRA). Te guía a través del proceso oficial del Gobierno de Canadá (IRCC y CBSA), te ayuda a organizar tus documentos, cumplir tus plazos y preparar tus escritos — siguiendo los requisitos exactos de la ley canadiense de inmigración."},
-      {h:"Qué NO es esta herramienta",t:"Esta herramienta NO proporciona asesoramiento legal. No es un despacho de abogados, un Consultor Regulado de Inmigración Canadiense (RCIC), ni un abogado de inmigración. No te representa ante IRCC, CBSA, la Junta de Inmigración y Refugiados (IRB), ni ningún organismo gubernamental. No garantiza ningún resultado, aprobación ni protección."},
-      {h:"Quiénes somos",t:"Somos una empresa de tecnología que proporciona una plataforma informativa. No somos consultores de inmigración con licencia y no actuamos como tu representante en ningún procedimiento migratorio. Utilizamos inteligencia artificial para ayudarte a acceder a información pública y organizar tus materiales de solicitud — la misma información publicada por el Gobierno de Canadá en canada.ca."},
-      {h:"Tu responsabilidad",t:"Eres el/la único/a responsable de revisar, completar, firmar y enviar tu propia solicitud. Debes verificar que toda la información sea correcta y esté actualizada. La IA puede cometer errores — siempre verifica los detalles importantes en canada.ca o con un profesional calificado."},
-      {h:"Para casos complejos",t:"Si eres inadmisible por criminalidad grave, seguridad o crimen organizado; si tienes antecedentes penales; o si tu situación es compleja — te recomendamos consultar a un RCIC registrado en college-ic.ca o a un abogado de inmigración con licencia."},
-      {h:"Tus datos",t:"La información que ingresas se almacena localmente en tu navegador (localStorage). No se envía a ningún servidor, no se comparte con terceros y no está asociada a tu identidad. Puedes borrarla en cualquier momento haciendo clic en 'Empezar de nuevo'."},
-    ],
-    accept:"He leído y entendido lo anterior — Continuar",
-    decline:"No acepto — Salir",
-  },
-  fr:{
-    title:"Avant de continuer",
-    subtitle:"Veuillez lire et accepter ce qui suit",
-    body:[
-      {h:"Ce qu'est cet outil",t:"Il s\'agit d\'un guide informatif alimenté par l\'intelligence artificielle pour vous aider à comprendre et préparer votre demande d'évaluation des risques avant renvoi (ERAR). Il vous guide à travers le processus officiel du gouvernement du Canada (IRCC et CBSA), vous aide à organiser vos documents, respecter vos délais et préparer vos observations écrites — en suivant les exigences exactes de la loi canadienne sur l\'immigration."},
-      {h:"Ce que cet outil N'est PAS",t:"Cet outil ne fournit pas de conseils juridiques. Il n\'est pas un cabinet d'avocats, un consultant réglementé en immigration canadienne (CRIC) ou un avocat en immigration. Il ne vous représente pas devant l\'IRCC, l\'ASFC, la Commission de l\'immigration et du statut de réfugié (CISR) ou tout autre organisme gouvernemental. Il ne garantit aucun résultat, approbation ou protection."},
-      {h:"Qui nous sommes",t:"Nous sommes une société technologique fournissant une plateforme d\'information. Nous ne sommes pas des consultants en immigration agréés et nous n'agissons pas en tant que votre représentant dans une procédure d\'immigration. Nous utilisons l\'intelligence artificielle pour vous aider à accéder aux informations publiques — les mêmes informations publiées par le gouvernement du Canada sur canada.ca."},
-      {h:"Votre responsabilité",t:"Vous êtes seul(e) responsable de la vérification, de la complétion, de la signature et de la soumission de votre propre demande. Vous devez vérifier que toutes les informations sont exactes et à jour. L'IA peut faire des erreurs — vérifiez toujours les détails importants sur canada.ca ou auprès d\'un professionnel qualifié."},
-      {h:"Pour les cas complexes",t:"Si vous êtes interdit(e) de territoire pour criminalité grave, sécurité ou crime organisé; si vous avez un casier judiciaire; ou si votre situation est complexe — nous vous recommandons fortement de consulter un CRIC inscrit sur college-ic.ca ou un avocat en immigration agréé."},
-      {h:"Vos données",t:"Les informations que vous saisissez sont stockées localement dans votre navigateur (localStorage). Elles ne sont pas envoyées à un serveur, pas partagées avec des tiers, et pas associées à votre identité. Vous pouvez les supprimer à tout moment en cliquant sur 'Recommencer'."},
-    ],
-    accept:"J'ai lu et compris ce qui précède — Continuer",
-    decline:"Je n\'accepte pas — Quitter",
-  },
 };
 
-function DisclaimerScreen({lang, onAccept, onDecline}) {
-  const [step, setStep] = useState(0);
-  const D = DISCLAIMER_TEXT[lang] || DISCLAIMER_TEXT.en;
+// ── SUB-FORM FIELD ────────────────────────────────────────────────────────────
+function SubField({field, lang, value, onChange}) {
+  const label = T(field[lang]||field.en, lang)?.label || T(field.en,lang)?.label || "";
+  const ph    = T(field[lang]||field.en, lang)?.ph    || T(field.en,lang)?.ph    || "";
+  const type  = field.type || "text";
+  const inputStyle = {width:"100%",border:"2px solid var(--brd)",borderRadius:8,padding:"10px 12px",fontSize:14,color:"#1a2535",background:"#fff",outline:"none",fontFamily:"inherit"};
 
-  const stepCfg = [
-    {idx:0,en:{h:"Step 1 of 3 — What this tool is",accept:"I understand — Continue"},es:{h:"Paso 1 de 3 — Qué es esta herramienta",accept:"Entendido — Continuar"},fr:{h:"Étape 1 sur 3 — Ce que cet outil est",accept:"Je comprends — Continuer"}},
-    {idx:1,en:{h:"Step 2 of 3 — What this tool is NOT",accept:"I understand and accept — Continue"},es:{h:"Paso 2 de 3 — Qué NO es esta herramienta",accept:"Entendido y acepto — Continuar"},fr:{h:"Étape 2 sur 3 — Ce que cet outil n'est PAS",accept:"Je comprends et accepte — Continuer"}},
-    {idx:null,en:{h:"Step 3 of 3 — Additional terms",scrollHint:"More below ↓"},es:{h:"Paso 3 de 3 — Términos adicionales",scrollHint:"Más abajo ↓"},fr:{h:"Étape 3 sur 3 — Conditions supplémentaires",scrollHint:"Plus bas ↓"}},
-  ];
+  if(type === "select") {
+    const opts = (field.opts || []);
+    return (
+      <div>
+        <label style={{display:"block",fontSize:12,fontWeight:600,color:"var(--ink2)",marginBottom:4}}>{label}{field.req&&<span style={{color:"var(--red)",marginLeft:2}}>*</span>}</label>
+        <select value={value||""} onChange={e=>onChange(e.target.value)} style={{...inputStyle,cursor:"pointer"}}>
+          <option value="">{T({en:"Select…",es:"Seleccionar…",fr:"Sélectionner…"},lang)}</option>
+          {opts.map(o=><option key={o.v} value={o.v}>{T(o,lang)||o.en}</option>)}
+        </select>
+      </div>
+    );
+  }
 
-  const cfg = stepCfg[step];
-  const L = lang==="es"?"es":lang==="fr"?"fr":"en";
-  const [scrolled, setScrolled] = useState(false);
-  const [showHint, setShowHint] = useState(false);
-  const contentRef = useRef(null);
+  if(type === "date") {
+    return (
+      <div>
+        <label style={{display:"block",fontSize:12,fontWeight:600,color:"var(--ink2)",marginBottom:4}}>{label}{field.req&&<span style={{color:"var(--red)",marginLeft:2}}>*</span>}</label>
+        <input type="date" value={value||""} onChange={e=>onChange(e.target.value)} max={new Date().toISOString().split("T")[0]}
+          style={{...inputStyle,WebkitAppearance:"none",appearance:"none",display:"block",boxSizing:"border-box"}}/>
+      </div>
+    );
+  }
 
-  // On step 2, check after render if content overflows to show the floating hint
-  useEffect(()=>{
-    if(step===2&&contentRef.current){
-      const el = contentRef.current;
-      const overflows = el.scrollHeight > el.clientHeight + 20;
-      setShowHint(overflows);
-    } else {
-      setShowHint(false);
-    }
-  },[step]);
+  return (
+    <div>
+      <label style={{display:"block",fontSize:12,fontWeight:600,color:"var(--ink2)",marginBottom:4}}>{label}{field.req&&<span style={{color:"var(--red)",marginLeft:2}}>*</span>}</label>
+      <input value={value||""} onChange={e=>onChange(e.target.value)} placeholder={ph||""}
+        style={inputStyle}
+        onFocus={e=>e.target.style.borderColor="var(--navy)"}
+        onBlur={e=>e.target.style.borderColor="var(--brd)"}/>
+    </div>
+  );
+}
 
-  const handleScroll = (e) => {
-    const el = e.target;
-    const atBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - 40;
-    if(atBottom){ setScrolled(true); setShowHint(false); }
-    else { setShowHint(true); }
+// ── REPEAT STEP ───────────────────────────────────────────────────────────────
+function RepeatStep({stepData, lang, value, onAnswer, onBack}) {
+  const items   = value || [];
+  const max     = stepData.max || 10;
+  const sFields = stepData.subFields || [];
+  const [isAdding, setIsAdding] = useState(items.length === 0);
+  const [current, setCurrent]   = useState({});
+
+  const canSave = sFields.filter(f=>f.req).every(f => (current[f.id]||"").trim());
+
+  const saveItem = () => {
+    if(!canSave) return;
+    onAnswer(stepData.field, [...items, current]);
+    setCurrent({});
+    setIsAdding(false);
   };
 
-  const handleStepChange = (nextStep) => {
-    setScrolled(false);
-    setShowHint(false);
-    setStep(nextStep);
-    if(contentRef.current) contentRef.current.scrollTop = 0;
-  };
+  const removeItem = (idx) => onAnswer(stepData.field, items.filter((_,i)=>i!==idx));
 
-  const scrollDown = () => {
-    if(contentRef.current){
-      contentRef.current.scrollBy({top:160,behavior:"smooth"});
-    }
+  const done = () => onAnswer(stepData.field, items, true);
+
+  const L = lang;
+  const s = stepData;
+  const addBtnLabel = T(s[L]?.addBtn||s.en?.addBtn||{en:"Add another"},L) || "Add another";
+  const doneBtnLabel = T(s[L]?.doneBtn||s.en?.doneBtn||{en:"Continue"},L) || "Continue";
+  const skipBtnLabel = s[L]?.skipBtn || s.en?.skipBtn;
+
+  // Summary label for an item
+  const itemSummary = (item) => {
+    const first = sFields.find(f=>f.req&&item[f.id]);
+    const second = sFields.filter(f=>f.req&&item[f.id])[1];
+    return [item[first?.id], item[second?.id]].filter(Boolean).join(" — ");
   };
 
   return (
-    <div style={{minHeight:"100vh",background:"linear-gradient(155deg,#0d2137 0%,#1e3a5c 50%,#1a5c52 100%)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"24px 16px"}}>
-      <style>{CSS}</style>
-      <div className="fi" style={{background:"var(--paper)",borderRadius:18,maxWidth:640,width:"100%",boxShadow:"0 8px 40px rgba(0,0,0,.3)",overflow:"hidden",display:"flex",flexDirection:"column",maxHeight:"90vh",position:"relative"}}>
+    <div>
+      {/* Existing items */}
+      {items.length > 0 && (
+        <div style={{marginBottom:16,display:"flex",flexDirection:"column",gap:8}}>
+          {items.map((item,idx)=>(
+            <div key={idx} style={{background:"var(--greenp)",borderRadius:10,padding:"10px 14px",border:"1px solid #6bbdad",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+              <span style={{fontSize:13,color:"var(--teal)",fontWeight:600}}>✓ {itemSummary(item)}</span>
+              <button onClick={()=>removeItem(idx)} style={{background:"none",border:"none",color:"var(--red)",cursor:"pointer",fontSize:12,fontWeight:600,padding:"2px 6px"}}>{T(UI.removeItem,L)}</button>
+            </div>
+          ))}
+          <div style={{fontSize:12,color:"var(--ink3)",textAlign:"center"}}>{items.length} {T(UI.itemsAdded,L)}{items.length<max?"":" (maximum reached)"}</div>
+        </div>
+      )}
 
-        <div style={{background:"var(--navy2)",padding:"22px 28px",flexShrink:0}}>
-          <div style={{color:"rgba(255,255,255,.5)",fontSize:11,letterSpacing:"2px",textTransform:"uppercase",marginBottom:6}}>⚖️ PRRA Guide · Canada</div>
-          <h2 style={{fontFamily:"Playfair Display,serif",color:"#fff",fontSize:"clamp(18px,3vw,23px)",marginBottom:4}}>{cfg[L]?.h||cfg.en.h}</h2>
-          <div style={{display:"flex",gap:6,marginTop:8}}>
-            {[0,1,2].map(i=>(
-              <div key={i} style={{height:4,flex:1,borderRadius:2,background:i<=step?"#fff":"rgba(255,255,255,.25)",transition:"background .3s"}}/>
+      {/* Add form */}
+      {isAdding && (
+        <div className="fi" style={{background:"var(--paper)",borderRadius:14,padding:"18px",border:"1.5px solid var(--navy)",marginBottom:14}}>
+          <div style={{display:"flex",flexDirection:"column",gap:12,marginBottom:14}}>
+            {sFields.map(f=>(
+              <SubField key={f.id} field={f} lang={L} value={current[f.id]||""} onChange={v=>setCurrent(c=>({...c,[f.id]:v}))}/>
             ))}
           </div>
+          <div style={{display:"flex",gap:8}}>
+            <Btn onClick={saveItem} disabled={!canSave} style={{flex:1}}>{T(UI.saveItem,L)}</Btn>
+            {items.length>0&&<Btn onClick={()=>{setCurrent({});setIsAdding(false);}} variant="secondary">✕</Btn>}
+          </div>
         </div>
+      )}
 
-        <div ref={contentRef} onScroll={handleScroll}
-          style={{flex:1,overflowY:"auto",padding:"24px 28px",background:"var(--paper2)"}}>
-
-          {step<2?(
-            <div style={{background:"var(--navyl)",borderRadius:11,padding:"16px 20px"}}>
-              <div style={{fontWeight:700,color:"var(--navy)",fontSize:15,marginBottom:10}}>
-                {D.body[cfg.idx].h}
-              </div>
-              <p style={{fontSize:14,color:"var(--ink2)",lineHeight:1.75}}>
-                {D.body[cfg.idx].t}
-              </p>
-            </div>
-          ):(
-            <div>
-              {D.body.slice(2).map((s,i)=>(
-                <div key={i} style={{marginBottom:18}}>
-                  <div style={{fontWeight:700,color:"var(--navy)",fontSize:14,marginBottom:6,display:"flex",gap:8,alignItems:"center"}}>
-                    <span style={{width:22,height:22,borderRadius:"50%",background:"var(--navyl)",color:"var(--navy)",display:"inline-flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:800,flexShrink:0}}>{i+3}</span>
-                    {s.h}
-                  </div>
-                  <p style={{fontSize:13.5,color:"var(--ink2)",lineHeight:1.7,paddingLeft:30}}>{s.t}</p>
-                </div>
-              ))}
-            </div>
+      {/* Controls */}
+      {!isAdding && (
+        <div style={{display:"flex",flexDirection:"column",gap:10,marginBottom:14}}>
+          {items.length < max && (
+            <Btn onClick={()=>{setCurrent({});setIsAdding(true);}} variant="secondary" full>{addBtnLabel}</Btn>
           )}
         </div>
+      )}
 
-        {/* Floating scroll hint — only on step 2, only when content overflows and not yet scrolled to bottom */}
-        {step===2&&showHint&&(
-          <button
-            onClick={scrollDown}
-            style={{
-              position:"absolute",
-              bottom:88,
-              left:"50%",
-              transform:"translateX(-50%)",
-              background:"#b45309",
-              color:"#fff",
-              border:"none",
-              borderRadius:20,
-              padding:"7px 18px",
-              fontSize:13,
-              fontFamily:"Inter,sans-serif",
-              fontWeight:600,
-              cursor:"pointer",
-              boxShadow:"0 3px 14px rgba(0,0,0,.35)",
-              display:"flex",
-              alignItems:"center",
-              gap:6,
-              animation:"bob 1.8s ease-in-out infinite",
-            }}>
-            <span>{cfg[L]?.scrollHint||cfg.en.scrollHint}</span>
-          </button>
+      <div style={{display:"flex",flexDirection:"column",gap:8}}>
+        <Btn onClick={done} full disabled={isAdding&&items.length===0&&!canSave}>{doneBtnLabel}</Btn>
+        {skipBtnLabel && items.length === 0 && !isAdding && (
+          <Btn onClick={()=>onAnswer(stepData.field,[],true)} variant="ghost" full>{skipBtnLabel}</Btn>
+        )}
+      </div>
+
+      {(items.length>0||isAdding)&&<button onClick={onBack} style={{background:"none",border:"none",color:"var(--ink3)",fontFamily:"inherit",fontSize:12,cursor:"pointer",marginTop:14,padding:"4px 0"}}>{T(UI.back,L)}</button>}
+    </div>
+  );
+}
+
+// ── GROUPED STEP ──────────────────────────────────────────────────────────────
+function GroupedStep({stepData, lang, value, onAnswer, onBack}) {
+  const sFields = stepData.subFields || [];
+  const [vals, setVals] = useState(value || {});
+  const canContinue = sFields.filter(f=>f.req).every(f=>(vals[f.id]||"").toString().trim());
+  const L = lang;
+  return (
+    <div>
+      <div style={{display:"flex",flexDirection:"column",gap:14,marginBottom:20}}>
+        {sFields.map(f=>(
+          <SubField key={f.id} field={f} lang={L} value={vals[f.id]||""} onChange={v=>setVals(c=>({...c,[f.id]:v}))}/>
+        ))}
+      </div>
+      <Btn onClick={()=>canContinue&&onAnswer(stepData.field,vals)} disabled={!canContinue} full>{T(UI.continue,L)}</Btn>
+      <button onClick={onBack} style={{background:"none",border:"none",color:"var(--ink3)",fontFamily:"inherit",fontSize:12,cursor:"pointer",marginTop:12,padding:"4px 0"}}>{T(UI.back,L)}</button>
+    </div>
+  );
+}
+
+// ── STORY STEP ────────────────────────────────────────────────────────────────
+function StoryStep({stepData, lang, answers, value, feedback: initFeedback, onAnswer, onFeedbackDone, onBack, avgStrength}) {
+  const [val, setVal]           = useState(value||"");
+  const [phase, setPhase]       = useState(initFeedback?"feedback":"input");
+  const [feedback, setFeedback] = useState(initFeedback||null);
+  const [followVal, setFollowVal] = useState("");
+  const L = lang;
+  const ph = T(stepData[L]?.ph||stepData.en?.ph||{},L)||"";
+
+  const submit = async () => {
+    if(val.trim().length<15) return;
+    setPhase("loading");
+    const fb = await getStoryFeedback(val.trim(), stepData.claudeQ, answers, L);
+    setFeedback(fb);
+    setPhase("feedback");
+  };
+
+  const finish = () => {
+    const final = followVal.trim() ? val.trim()+"\n\nAdditional detail: "+followVal.trim() : val.trim();
+    onFeedbackDone(stepData.field, final, feedback);
+  };
+
+  return (
+    <div>
+      {phase==="input"&&(
+        <div>
+          <textarea value={val} onChange={e=>setVal(e.target.value)} placeholder={ph} rows={6} autoFocus
+            style={{width:"100%",border:"2px solid var(--brd)",borderRadius:12,padding:"14px 16px",fontSize:14,color:"var(--ink)",lineHeight:1.7,resize:"vertical",background:"#fff",outline:"none",fontFamily:"inherit"}}
+            onFocus={e=>e.target.style.borderColor="var(--navy)"} onBlur={e=>e.target.style.borderColor="var(--brd)"}/>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:8,marginBottom:4}}>
+            <span style={{fontSize:12,color:"var(--ink3)"}}>{val.trim().split(/\s+/).filter(Boolean).length} {T({en:"words",es:"palabras",fr:"mots"},L)}</span>
+            <Btn onClick={submit} disabled={val.trim().length<15}>{T(UI.submit,L)}</Btn>
+          </div>
+          {val.trim().length>0&&val.trim().length<15&&<p style={{fontSize:12,color:"var(--amber)"}}>Please write at least a few sentences to help us build your case.</p>}
+        </div>
+      )}
+
+      {phase==="loading"&&(
+        <div style={{textAlign:"center",padding:"36px 20px"}}>
+          <div style={{width:40,height:40,border:"3px solid var(--navyl)",borderTop:"3px solid var(--navy)",borderRadius:"50%",animation:"spin 1s linear infinite",margin:"0 auto 14px"}}/>
+          <p style={{color:"var(--ink2)",fontSize:14}}>{T(UI.analyzing,L)}</p>
+        </div>
+      )}
+
+      {(phase==="feedback"||phase==="followup")&&feedback&&(
+        <div>
+          <div style={{background:"var(--paper)",borderRadius:12,padding:"14px 16px",border:"1.5px solid var(--navy)",marginBottom:12}}>
+            <div style={{fontSize:11,color:"var(--navy)",fontWeight:700,textTransform:"uppercase",letterSpacing:"1px",marginBottom:6}}>⚖️ {T({en:"Analysis of your answer",es:"Análisis de tu respuesta",fr:"Analyse de votre réponse"},L)}</div>
+            <p style={{fontSize:14,color:"var(--ink)",lineHeight:1.65}}>{feedback.feedback}</p>
+            {feedback.tip&&<p style={{fontSize:13,color:"var(--amber)",marginTop:8,fontWeight:600}}>💡 {feedback.tip}</p>}
+            <CaseMeter strength={feedback.strength} lang={L}/>
+          </div>
+
+          {feedback.followUp&&phase==="feedback"&&(
+            <div style={{background:"var(--amberp)",borderRadius:12,padding:"14px 16px",marginBottom:12}}>
+              <p style={{fontSize:14,color:"var(--ink)",marginBottom:10,fontWeight:600}}>❓ {feedback.followUp}</p>
+              <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+                <Btn onClick={()=>setPhase("followup")} variant="amber">{T(UI.addDetail,L)}</Btn>
+                <button onClick={finish} style={{background:"none",border:"none",color:"var(--ink3)",fontFamily:"inherit",fontSize:13,cursor:"pointer",textDecoration:"underline"}}>{T(UI.skipFollowUp,L)}</button>
+              </div>
+            </div>
+          )}
+
+          {phase==="followup"&&(
+            <div style={{marginBottom:12}}>
+              <textarea value={followVal} onChange={e=>setFollowVal(e.target.value)} placeholder={feedback.followUp} rows={3} autoFocus
+                style={{width:"100%",border:"2px solid var(--amber)",borderRadius:10,padding:"12px 14px",fontSize:14,color:"var(--ink)",lineHeight:1.65,resize:"vertical",background:"#fff",outline:"none",fontFamily:"inherit",marginBottom:8}}/>
+              <Btn onClick={finish} variant="amber" full>{T(UI.addDetail,L)} →</Btn>
+            </div>
+          )}
+
+          {phase==="feedback"&&!feedback.followUp&&<Btn onClick={finish} full>{T(UI.continue,L)}</Btn>}
+        </div>
+      )}
+
+      {avgStrength!==null&&<CaseMeter strength={avgStrength} lang={L}/>}
+      {phase==="input"&&<button onClick={onBack} style={{background:"none",border:"none",color:"var(--ink3)",fontFamily:"inherit",fontSize:12,cursor:"pointer",marginTop:14,padding:"4px 0"}}>{T(UI.back,L)}</button>}
+    </div>
+  );
+}
+
+// ── REVIEW CARD ───────────────────────────────────────────────────────────────
+function ReviewCard({answers, lang, onConfirm, onBack}) {
+  const L = lang;
+  const rows = [
+    {l:{en:"Name",es:"Nombre",fr:"Nom"},        v:`${answers.firstName||""} ${answers.lastName||""}`.trim()},
+    {l:{en:"Country",es:"País",fr:"Pays"},       v:answers.country},
+    {l:{en:"Deadline",es:"Fecha límite",fr:"Date limite"}, v:fmtDate(answers.deadline)},
+    {l:{en:"PRRA type",es:"Tipo PRRA",fr:"Type PRRA"}, v:answers.criminalRecord==="serious"?"Restricted (s.97 only)":"Full (s.96 + s.97)"},
+    {l:{en:"Date of birth",es:"Fecha de nacimiento",fr:"Date de naissance"}, v:answers.dob},
+    {l:{en:"Marital status",es:"Estado civil",fr:"État civil"}, v:answers.maritalStatus},
+    {l:{en:"Address in Canada",es:"Dirección en Canadá",fr:"Adresse au Canada"}, v:answers.address},
+    {l:{en:"UCI number",es:"Número UCI",fr:"Numéro IUC"}, v:answers.uci&&answers.uci!=="skip"?answers.uci:"Not provided"},
+    {l:{en:"Representative",es:"Representante",fr:"Représentant"}, v:answers.hasRep==="yes"?(answers.repName||"Yes"):"None"},
+    {l:{en:"Documents",es:"Documentos",fr:"Documents"}, v:(answers.documents||[]).length+" item(s) checked"},
+  ].filter(r=>r.v);
+  return (
+    <div>
+      <div style={{background:"var(--paper)",borderRadius:14,overflow:"hidden",border:"1px solid var(--brd)",marginBottom:18}}>
+        {rows.map((r,i)=>(
+          <div key={i} style={{display:"flex",justifyContent:"space-between",padding:"11px 16px",borderBottom:i<rows.length-1?"1px solid var(--brd)":"none",fontSize:13}}>
+            <span style={{color:"var(--ink2)",fontWeight:500}}>{T(r.l,L)}</span>
+            <span style={{color:"var(--ink)",fontWeight:600,textAlign:"right",maxWidth:"55%"}}>{r.v}</span>
+          </div>
+        ))}
+      </div>
+      <Btn onClick={onConfirm} full style={{marginBottom:10}}>{T(UI.confirmReady,L)}</Btn>
+      <Btn onClick={onBack} variant="secondary" full style={{fontSize:13}}>{T(UI.editAnswers,L)}</Btn>
+    </div>
+  );
+}
+
+// ── WIZARD STEP DISPATCHER ────────────────────────────────────────────────────
+function WizardStep({stepData, lang, answers, onAnswer, onBack, feedbackState, onFeedbackDone, avgStrength}) {
+  const [val, setVal]   = useState(answers[stepData.field]||"");
+  const [multi, setMulti] = useState(answers[stepData.field]||[]);
+  const [key, setKey]   = useState(0);
+  const L = lang;
+  const deadline = answers.deadline;
+
+  useEffect(()=>{
+    setVal(answers[stepData.field]||"");
+    setMulti(answers[stepData.field]||[]);
+    setKey(k=>k+1);
+  },[stepData.id]);
+
+  const q     = T(stepData[L]?.q || stepData.en?.q, L);
+  const intro = T(stepData[L]?.intro || stepData.en?.intro, L);
+  const ph    = T(stepData[L]?.ph || stepData.en?.ph, L) || "";
+
+  const advance = (field, value, extra={}) => {
+    if(field) {
+      const newAnswers = {...answers, [field]:value, ...extra};
+      // Calculate deadline when notification date is set
+      if(field==="notificationDate" && value) {
+        const days = newAnswers.notificationMethod==="inperson"?15:22;
+        extra.deadline = addDays(value, days);
+      }
+    }
+    onAnswer(field, value, extra);
+  };
+
+  return (
+    <div className="sl" key={key} style={{display:"flex",flexDirection:"column",flex:1,overflow:"hidden"}}>
+      <DeadlineBanner deadline={deadline} lang={L}/>
+      <div style={{flex:1,overflowY:"auto",padding:"20px 20px 80px",maxWidth:580,margin:"0 auto",width:"100%"}}>
+
+        {/* Phase tag */}
+        {stepData.phase>0&&(()=>{
+          const ph = PHASES.find(p=>p.id===stepData.phase);
+          if(!ph) return null;
+          return <div style={{display:"inline-block",background:"#e8f0fe",color:ph.col,fontSize:11,fontWeight:700,textTransform:"uppercase",letterSpacing:"1.5px",padding:"3px 10px",borderRadius:20,marginBottom:14}}>{T(ph,L)}</div>;
+        })()}
+
+        {/* Intro */}
+        {intro&&<p style={{fontSize:14,color:"var(--ink2)",lineHeight:1.7,marginBottom:18,background:"var(--paper)",borderRadius:10,padding:"12px 14px",borderLeft:"3px solid var(--amber)"}}>{intro}</p>}
+
+        {/* Question */}
+        <h2 style={{fontFamily:"Georgia,serif",fontSize:"clamp(19px,4vw,26px)",color:"var(--ink)",lineHeight:1.3,marginBottom:20}}>{q}</h2>
+
+        {/* ── TEXT ── */}
+        {stepData.type==="text"&&(
+          <div style={{display:"flex",flexDirection:"column",gap:10}}>
+            <input value={val} onChange={e=>setVal(e.target.value)} placeholder={ph} autoFocus
+              onKeyDown={e=>e.key==="Enter"&&val.trim()&&advance(stepData.field,val.trim())}
+              style={{border:"2px solid var(--brd)",borderRadius:12,padding:"14px 16px",fontSize:16,color:"var(--ink)",background:"#fff",outline:"none",transition:"border-color .2s"}}
+              onFocus={e=>e.target.style.borderColor="var(--navy)"} onBlur={e=>e.target.style.borderColor="var(--brd)"}/>
+            <Btn onClick={()=>val.trim()&&advance(stepData.field,val.trim())} disabled={!val.trim()} full>{T(UI.continue,L)}</Btn>
+            <button onClick={onBack} style={{background:"none",border:"none",color:"var(--ink3)",fontFamily:"inherit",fontSize:12,cursor:"pointer",padding:"4px 0"}}>{T(UI.back,L)}</button>
+          </div>
         )}
 
-        <div style={{padding:"18px 28px",borderTop:"1px solid var(--brd)",background:"var(--paper)",flexShrink:0,display:"flex",flexDirection:"column",gap:8}}>
-          {step<2?(
-            <Btn onClick={()=>handleStepChange(step+1)} style={{width:"100%",padding:"13px",fontSize:14}}>
-              {cfg[L]?.accept||cfg.en.accept} →
-            </Btn>
-          ):(
-            <Btn onClick={onAccept} style={{width:"100%",padding:"13px",fontSize:14}}>
-              {D.accept}
-            </Btn>
-          )}
-          <Btn onClick={onDecline} variant="danger" style={{width:"100%",padding:"10px",fontSize:13}}>
-            {D.decline}
-          </Btn>
-        </div>
+        {/* ── TEXTSKIP ── */}
+        {stepData.type==="textSkip"&&(
+          <div style={{display:"flex",flexDirection:"column",gap:10}}>
+            <input value={val} onChange={e=>setVal(e.target.value)} placeholder={ph} autoFocus
+              style={{border:"2px solid var(--brd)",borderRadius:12,padding:"14px 16px",fontSize:16,color:"var(--ink)",background:"#fff",outline:"none",transition:"border-color .2s"}}
+              onFocus={e=>e.target.style.borderColor="var(--navy)"} onBlur={e=>e.target.style.borderColor="var(--brd)"}/>
+            <Btn onClick={()=>advance(stepData.field,val.trim()||"skip")} full>{val.trim()?T(UI.continue,L):T(UI.skip,L)}</Btn>
+            <button onClick={onBack} style={{background:"none",border:"none",color:"var(--ink3)",fontFamily:"inherit",fontSize:12,cursor:"pointer",padding:"4px 0"}}>{T(UI.back,L)}</button>
+          </div>
+        )}
+
+        {/* ── DATE ── */}
+        {stepData.type==="date"&&(
+          <div style={{display:"flex",flexDirection:"column",gap:10}}>
+            <input type="date" value={val} onChange={e=>setVal(e.target.value)}
+              max={new Date().toISOString().split("T")[0]}
+              style={{border:"2px solid var(--brd)",borderRadius:12,padding:"14px 16px",fontSize:16,color:"#1a2535",background:"#fff",outline:"none",WebkitAppearance:"none",appearance:"none",width:"100%",display:"block",boxSizing:"border-box"}}
+              onFocus={e=>e.target.style.borderColor="var(--navy)"} onBlur={e=>e.target.style.borderColor="var(--brd)"}/>
+            <Btn onClick={()=>{
+              if(!val) return;
+              if(stepData.field==="notificationDate") {
+                const days = answers.notificationMethod==="inperson"?15:22;
+                advance(stepData.field, val, {deadline:addDays(val,days)});
+              } else {
+                advance(stepData.field, val);
+              }
+            }} disabled={!val} full>{T(UI.continue,L)}</Btn>
+            <button onClick={onBack} style={{background:"none",border:"none",color:"var(--ink3)",fontFamily:"inherit",fontSize:12,cursor:"pointer",padding:"4px 0"}}>{T(UI.back,L)}</button>
+          </div>
+        )}
+
+        {/* ── CHOICE ── */}
+        {stepData.type==="choice"&&(
+          <div style={{display:"flex",flexDirection:"column",gap:9}}>
+            {(stepData.opts||[]).map(o=>(
+              <button key={o.v} onClick={()=>advance(stepData.field,o.v)}
+                style={{background:"var(--paper2)",border:"2px solid var(--brd)",borderRadius:12,padding:"14px 16px",textAlign:"left",cursor:"pointer",fontFamily:"inherit",fontSize:14,fontWeight:500,color:"var(--ink)",display:"flex",alignItems:"center",gap:12,transition:"all .15s",outline:"none"}}
+                onMouseEnter={e=>{e.currentTarget.style.borderColor="var(--navy)";e.currentTarget.style.background="var(--navyl)";e.currentTarget.style.transform="translateX(4px)";}}
+                onMouseLeave={e=>{e.currentTarget.style.borderColor="var(--brd)";e.currentTarget.style.background="var(--paper2)";e.currentTarget.style.transform="none";}}>
+                {o.e&&<span style={{fontSize:20,flexShrink:0,width:28,textAlign:"center"}}>{o.e}</span>}
+                <span>{T(o,L)||o.en}</span>
+              </button>
+            ))}
+            {stepData.phase>0&&<button onClick={onBack} style={{background:"none",border:"none",color:"var(--ink3)",fontFamily:"inherit",fontSize:12,cursor:"pointer",marginTop:6,padding:"4px 0"}}>{T(UI.back,L)}</button>}
+          </div>
+        )}
+
+        {/* ── MULTICHOICE ── */}
+        {stepData.type==="multiChoice"&&(
+          <div>
+            <p style={{fontSize:12,color:"var(--ink3)",marginBottom:12,fontWeight:600,textTransform:"uppercase",letterSpacing:".5px"}}>{T(UI.selectAll,L)}</p>
+            <div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:14}}>
+              {(stepData.opts||[]).map(o=>{
+                const checked = multi.includes(o.v);
+                return (
+                  <button key={o.v} onClick={()=>setMulti(m=>checked?m.filter(x=>x!==o.v):[...m,o.v])}
+                    style={{background:checked?"var(--navyl)":"var(--paper2)",border:`2px solid ${checked?"var(--navy)":"var(--brd)"}`,borderRadius:12,padding:"12px 14px",textAlign:"left",cursor:"pointer",fontFamily:"inherit",fontSize:13,fontWeight:500,color:"var(--ink)",display:"flex",alignItems:"center",gap:10,transition:"all .15s",outline:"none"}}>
+                    <span style={{width:20,height:20,borderRadius:5,border:`2px solid ${checked?"var(--navy)":"#c8bfb0"}`,background:checked?"var(--navy)":"transparent",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+                      {checked&&<span style={{color:"#fff",fontSize:11,fontWeight:800}}>✓</span>}
+                    </span>
+                    {o.e&&<span style={{fontSize:17,flexShrink:0}}>{o.e}</span>}
+                    <span>{T(o,L)||o.en}</span>
+                  </button>
+                );
+              })}
+            </div>
+            <div style={{display:"flex",flexDirection:"column",gap:8}}>
+              {multi.length>0
+                ?<Btn onClick={()=>advance(stepData.field,multi)} full>{T(UI.continue,L)}</Btn>
+                :<Btn onClick={()=>advance(stepData.field,[])} variant="secondary" full>{stepData.noneOpt?T(stepData.noneOpt,L):T(UI.noneApply,L)}</Btn>
+              }
+              <button onClick={onBack} style={{background:"none",border:"none",color:"var(--ink3)",fontFamily:"inherit",fontSize:12,cursor:"pointer",padding:"4px 0"}}>{T(UI.back,L)}</button>
+            </div>
+          </div>
+        )}
+
+        {/* ── TEXTAREA ── */}
+        {stepData.type==="textarea"&&(
+          <div>
+            <textarea value={val} onChange={e=>setVal(e.target.value)} placeholder={ph} rows={6} autoFocus
+              style={{width:"100%",border:"2px solid var(--brd)",borderRadius:12,padding:"14px 16px",fontSize:14,color:"var(--ink)",lineHeight:1.7,resize:"vertical",background:"#fff",outline:"none",fontFamily:"inherit",marginBottom:12}}
+              onFocus={e=>e.target.style.borderColor="var(--navy)"} onBlur={e=>e.target.style.borderColor="var(--brd)"}/>
+            <Btn onClick={()=>val.trim()&&advance(stepData.field,val.trim())} disabled={!val.trim()} full>{T(UI.continue,L)}</Btn>
+            <button onClick={onBack} style={{background:"none",border:"none",color:"var(--ink3)",fontFamily:"inherit",fontSize:12,cursor:"pointer",marginTop:12,padding:"4px 0"}}>{T(UI.back,L)}</button>
+          </div>
+        )}
+
+        {/* ── GROUPED ── */}
+        {stepData.type==="grouped"&&(
+          <GroupedStep stepData={stepData} lang={L} value={answers[stepData.field]} onAnswer={(f,v)=>advance(f,v)} onBack={onBack}/>
+        )}
+
+        {/* ── REPEAT ── */}
+        {stepData.type==="repeat"&&(
+          <RepeatStep stepData={stepData} lang={L} value={answers[stepData.field]}
+            onAnswer={(f,v,done)=>{
+              if(done) advance(f,v);
+              else answers[f]=v; // interim update without advancing
+            }} onBack={onBack}/>
+        )}
+
+        {/* ── STORY ── */}
+        {stepData.type==="story"&&(
+          <StoryStep stepData={stepData} lang={L} answers={answers} value={answers[stepData.field]} feedback={feedbackState} onAnswer={(f,v)=>advance(f,v)} onFeedbackDone={onFeedbackDone} onBack={onBack} avgStrength={avgStrength}/>
+        )}
+
+        {/* ── REVIEW ── */}
+        {stepData.type==="review"&&(
+          <ReviewCard answers={answers} lang={L} onConfirm={()=>advance(null,null)} onBack={onBack}/>
+        )}
       </div>
     </div>
   );
 }
 
-// ── LANGUAGE SELECT ───────────────────────────────────────────────────────────
-function LangScreen({onSelect}) {
-  const [idx,setIdx] = useState(0);
-  const [vis,setVis] = useState(true);
-  useEffect(()=>{const t=setInterval(()=>{setVis(false);setTimeout(()=>{setIdx(i=>(i+1)%HELLOS.length);setVis(true);},300);},2000);return()=>clearInterval(t);},[]);
+// ── LANG SELECT ───────────────────────────────────────────────────────────────
+function LangSelect({onSelect}) {
+  const [idx, setIdx] = useState(0);
+  const [vis, setVis] = useState(true);
+  useEffect(()=>{
+    const t=setInterval(()=>{setVis(false);setTimeout(()=>{setIdx(i=>(i+1)%HELLOS.length);setVis(true);},300);},2200);
+    return()=>clearInterval(t);
+  },[]);
   const g = HELLOS[idx];
   return (
-    <div style={{minHeight:'100vh',background:'linear-gradient(155deg,#0d2137 0%,#1e3a5c 50%,#1a5c52 100%)',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:'32px 20px'}}>
+    <div style={{minHeight:"100vh",background:"linear-gradient(155deg,#0d2137 0%,#1e3a5c 50%,#1a5c52 100%)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"32px 20px"}}>
       <style>{CSS}</style>
-      <div style={{textAlign:'center',marginBottom:44,minHeight:130,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center'}}>
-        <div style={{opacity:vis?1:0,transform:vis?'translateY(0) scale(1)':'translateY(-10px) scale(.95)',transition:'all .3s ease'}}>
-          <div style={{fontFamily:'Playfair Display,serif',fontSize:'clamp(56px,11vw,88px)',color:'#fff',fontWeight:700,lineHeight:1}}>{g.w}</div>
-          <div style={{color:'rgba(255,255,255,.38)',fontSize:13,marginTop:8,letterSpacing:'3px',textTransform:'uppercase'}}>{g.l}</div>
+      <div style={{textAlign:"center",marginBottom:40,minHeight:120,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center"}}>
+        <div style={{opacity:vis?1:0,transform:vis?"translateY(0)":"translateY(-8px)",transition:"all .28s ease"}}>
+          <div style={{fontFamily:"Georgia,serif",fontSize:"clamp(56px,12vw,88px)",color:"#fff",fontWeight:700,lineHeight:1}}>{g.w}</div>
+          <div style={{color:"rgba(255,255,255,.4)",fontSize:12,marginTop:6,letterSpacing:"3px",textTransform:"uppercase"}}>{g.l}</div>
         </div>
       </div>
-      <div style={{marginBottom:32,textAlign:'center'}}>
-        <div style={{color:'rgba(255,255,255,.9)',fontSize:17,fontWeight:600,marginBottom:4}}>⚖️ PRRA Guide · Canada</div>
-        <div style={{color:'rgba(255,255,255,.4)',fontSize:13}}>Pre-Removal Risk Assessment · Guided information tool</div>
+      <div style={{marginBottom:28,textAlign:"center"}}>
+        <div style={{color:"rgba(255,255,255,.9)",fontSize:16,fontWeight:600,marginBottom:4}}>⚖️ PRRA Guide · Canada</div>
+        <div style={{color:"rgba(255,255,255,.45)",fontSize:13}}>Choose your language to begin</div>
       </div>
-      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(128px,1fr))',gap:7,maxWidth:620,width:'100%',marginBottom:32}}>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(126px,1fr))",gap:6,maxWidth:580,width:"100%"}}>
         {LANGS.map(({k,f,l})=>(
           <button key={k} onClick={()=>onSelect(k)}
-            style={{background:'rgba(255,255,255,.08)',border:'1px solid rgba(255,255,255,.14)',borderRadius:10,padding:'9px 12px',color:'#fff',fontFamily:'Inter,sans-serif',fontSize:12.5,fontWeight:500,cursor:'pointer',display:'flex',alignItems:'center',gap:7,transition:'all .17s'}}
-            onMouseEnter={e=>{e.currentTarget.style.background='rgba(255,255,255,.2)';e.currentTarget.style.borderColor='rgba(255,255,255,.4)';e.currentTarget.style.transform='translateY(-1px)';}}
-            onMouseLeave={e=>{e.currentTarget.style.background='rgba(255,255,255,.08)';e.currentTarget.style.borderColor='rgba(255,255,255,.14)';e.currentTarget.style.transform='none';}}>
-            <span style={{fontSize:17}}>{f}</span><span>{l}</span>
+            style={{background:"rgba(255,255,255,.08)",border:"1px solid rgba(255,255,255,.14)",borderRadius:10,padding:"8px 10px",color:"#fff",fontFamily:"inherit",fontSize:12,fontWeight:500,cursor:"pointer",display:"flex",alignItems:"center",gap:6,transition:"all .15s"}}
+            onMouseEnter={e=>{e.currentTarget.style.background="rgba(255,255,255,.2)";}}
+            onMouseLeave={e=>{e.currentTarget.style.background="rgba(255,255,255,.08)";}}>
+            <span style={{fontSize:16}}>{f}</span><span>{l}</span>
           </button>
         ))}
       </div>
-      <p style={{color:'rgba(255,255,255,.22)',fontSize:11,textAlign:'center',maxWidth:380,lineHeight:1.6}}>This tool provides information only — not legal advice. Always verify at canada.ca. For complex cases, consult a registered RCIC or immigration lawyer.</p>
     </div>
   );
 }
 
-// ── RESUME ────────────────────────────────────────────────────────────────────
+// ── RESUME SCREEN ─────────────────────────────────────────────────────────────
 function ResumeScreen({saved, onResume, onRestart}) {
-  const lang = saved?.lang || 'en';
-  const u = (k) => UI[k]?.[lang] || UI[k]?.en || '';
-  const n = daysLeft(saved?.profile?.deadline);
-  const [bg,tc] = n!==null&&n<=3?['var(--redp)','var(--red)']:n!==null&&n<=7?['var(--amberp)','var(--amber)']:['var(--tealp)','var(--teal)'];
-  const name = saved?.profile?.firstName;
+  const L = saved?.lang||"en";
+  const n = daysLeft(saved?.answers?.deadline);
+  const [bg,tc] = n!==null&&n<=3?["var(--redp)","var(--red)"]:n!==null&&n<=7?["var(--amberp)","var(--amber)"]:["var(--tealp)","var(--teal)"];
   return (
-    <div style={{minHeight:'100vh',background:'var(--bg)',display:'flex',alignItems:'center',justifyContent:'center',padding:'24px 20px'}}>
+    <div style={{minHeight:"100vh",background:"var(--bg)",display:"flex",alignItems:"center",justifyContent:"center",padding:"24px 16px"}}>
       <style>{CSS}</style>
-      <div className="fi" style={{background:'var(--paper)',borderRadius:18,padding:'36px 32px',maxWidth:460,width:'100%',boxShadow:'0 4px 28px rgba(30,58,92,.1)'}}>
-        <div style={{textAlign:'center',marginBottom:24}}>
-          <div style={{fontSize:44,marginBottom:12}}>📋</div>
-          <h2 style={{fontFamily:'Playfair Display,serif',fontSize:26,color:'var(--ink)',marginBottom:6}}>
-            {name ? `${u('hello')}, ${name}` : u('welcomeBack')}
-          </h2>
-          <p style={{color:'var(--ink2)',fontSize:15}}>{u('progressSaved')}</p>
+      <div className="fi" style={{background:"var(--paper)",borderRadius:16,maxWidth:460,width:"100%",padding:"36px 28px",boxShadow:"0 4px 28px rgba(30,58,92,.1)"}}>
+        <div style={{textAlign:"center",marginBottom:22}}>
+          <div style={{fontSize:42,marginBottom:10}}>📋</div>
+          <h2 style={{fontFamily:"Georgia,serif",fontSize:24,color:"var(--ink)",marginBottom:6}}>{T(UI.resumeTitle,L)}, {saved?.answers?.firstName||""}!</h2>
+          <p style={{color:"var(--ink2)",fontSize:14,lineHeight:1.6}}>{T(UI.resumeSub,L)}</p>
         </div>
-        {n!==null&&(
-          <div style={{background:bg,borderRadius:11,padding:'14px 18px',textAlign:'center',marginBottom:22}}>
-            <div style={{fontFamily:'Playfair Display,serif',fontSize:32,color:tc,fontWeight:700}}>
-              {Math.max(0,n)} {n===1?u('dayRemaining'):u('daysRemaining')}
-            </div>
-            <div style={{color:tc,fontSize:13,opacity:.8}}>{u('deadline')}: {fmtDate(saved.profile.deadline)}</div>
-          </div>
-        )}
-        <div style={{display:'flex',flexDirection:'column',gap:10}}>
-          <Btn onClick={onResume} style={{padding:'14px',fontSize:15,width:'100%'}}>{u('continueBtn')}</Btn>
-          <Btn onClick={onRestart} variant="secondary" style={{padding:'12px',fontSize:14,width:'100%'}}>{u('restartBtn')}</Btn>
+        {n!==null&&<div style={{background:bg,borderRadius:10,padding:"12px",textAlign:"center",marginBottom:18}}>
+          <div style={{fontFamily:"Georgia,serif",fontSize:26,color:tc,fontWeight:700}}>{Math.max(0,n)} {T(UI.daysLeft,L)}</div>
+          <div style={{color:tc,fontSize:13,opacity:.85}}>{T(UI.deadline,L)}: {fmtDate(saved.answers?.deadline)}</div>
+        </div>}
+        <div style={{display:"flex",flexDirection:"column",gap:10}}>
+          <Btn onClick={onResume} full>{T(UI.resumeYes,L)}</Btn>
+          <Btn onClick={onRestart} variant="secondary" full style={{fontSize:13}}>{T(UI.resumeNo,L)}</Btn>
         </div>
       </div>
     </div>
   );
 }
 
-// ── DIAGNOSIS ─────────────────────────────────────────────────────────────────
-
-// Stage 1 — Deadline questions (fast)
-const DQ1 = [
-  {id:'firstName',type:'text',
-    q:{en:'What is your first name?',es:'¿Cuál es tu nombre?',fr:'Quel est votre prénom?',pt:'Qual é o seu primeiro nome?',ar:'ما اسمك الأول؟',hi:'आपका पहला नाम क्या है?',zh:'您的名字是什么？',uk:'Як вас звати?',ru:'Как вас зовут?',tr:'Adınız nedir?',tl:'Ano ang iyong pangalan?',sw:'Jina lako ni nani?',ko:'이름이 무엇인가요?',ro:'Prenumele dvs.?'},
-    ph:{en:'First name',es:'Nombre',fr:'Prénom',pt:'Primeiro nome',ar:'الاسم الأول',hi:'पहला नाम',zh:'名字',uk:'Ім\'я',ru:'Имя',tr:'Ad',ko:'이름',ro:'Prenume'}},
-  {id:'lastName',type:'text',
-    q:{en:'And your last name?',es:'¿Y tu apellido?',fr:'Et votre nom de famille?',pt:'E seu sobrenome?',ar:'وما اسم العائلة؟',hi:'और आपका उपनाम?',zh:'您的姓氏？',uk:'Прізвище?',ru:'Фамилия?',tr:'Ve soyadınız?',ko:'성은요?',ro:'Numele de familie?'},
-    ph:{en:'Last name',es:'Apellido',fr:'Nom de famille',pt:'Sobrenome',ar:'اسم العائلة',hi:'उपनाम',zh:'姓氏',uk:'Прізвище',ru:'Фамилия',tr:'Soyad',ko:'성',ro:'Nume de familie'}},
-  {id:'country',type:'text',
-    q:{en:'What country are you originally from?',es:'¿De qué país eres originalmente?',fr:'De quel pays êtes-vous originaire?',pt:'De qual país você é?',ar:'من أي بلد أنت؟',hi:'आप मूल रूप से किस देश से हैं?',zh:'您来自哪个国家？',uk:'З якої ви країни?',ru:'Из какой вы страны?',tr:'Hangi ülkedensiniz?',ko:'어느 나라 출신이세요?',ro:'Din ce țară ești?'},
-    ph:{en:'e.g. Mexico, Nigeria, Iran…',es:'ej. México, Nigeria, Irán…',fr:'ex. Mexique, Nigéria, Iran…'}},
-  {id:'isFirstPRRA',type:'choice',
-    q:{en:'Is this your first PRRA application?',es:'¿Es esta tu primera solicitud PRRA?',fr:'Est-ce votre première demande PRRA?',pt:'Esta é sua primeira solicitação PRRA?',ar:'هل هذا أول طلب PRRA لك؟',hi:'क्या यह आपका पहला PRRA आवेदन है?',zh:'这是您第一次申请PRRA吗？',uk:'Це ваша перша заявка на PRRA?',ru:'Это ваше первое заявление PRRA?',ko:'첫 번째 PRRA 신청인가요?',ro:'Prima ta cerere PRRA?'},
-    opts:[
-      {v:true,e:'✅',l:{en:'Yes — first time',es:'Sí — primera vez',fr:'Oui — première fois',pt:'Sim — primeira vez',ar:'نعم — أول مرة',hi:'हाँ — पहली बार',zh:'是 — 第一次',uk:'Так — вперше',ru:'Да — первый раз',ko:'예 — 처음',ro:'Da — prima oară'}},
-      {v:false,e:'🔄',l:{en:'No — I had a previous PRRA',es:'No — ya tuve una PRRA antes',fr:'Non — j\'ai déjà eu une PRRA',pt:'Não — já tive uma PRRA antes',ar:'لا — كان لدي طلب PRRA سابق',hi:'नहीं — मेरा पहले भी PRRA था',zh:'否 — 我之前有过PRRA',uk:'Ні — у мене вже була PRRA',ru:'Нет — у меня уже было PRRA',ko:'아니요 — 이전에 PRRA가 있었어요',ro:'Nu — am mai avut o PRRA'}}
-    ]},
-  {id:'notificationMethod',type:'choice',
-    q:{en:'How did you receive the PRRA notification?',es:'¿Cómo recibiste la notificación PRRA?',fr:'Comment avez-vous reçu la notification PRRA?',pt:'Como você recebeu a notificação PRRA?',ar:'كيف تلقيت إشعار PRRA؟',hi:'आपको PRRA अधिसूचना कैसे मिली?',zh:'您如何收到PRRA通知？',uk:'Як ви отримали повідомлення PRRA?',ru:'Как вы получили уведомление PRRA?',ko:'PRRA 통보를 어떻게 받았나요?',ro:'Cum ați primit notificarea PRRA?'},
-    opts:[
-      {v:'inperson',e:'🏢',l:{en:'In person from a CBSA officer → 15 days to apply',es:'En persona de un oficial CBSA → 15 días para aplicar',fr:'En personne d\'un agent CBSA → 15 jours pour postuler',pt:'Pessoalmente de um agente CBSA → 15 dias',ar:'شخصياً من ضابط CBSA — 15 يوماً',hi:'CBSA अधिकारी से व्यक्तिगत → 15 दिन',zh:'CBSA官员当面通知 → 15天',uk:'Особисто від офіцера CBSA → 15 днів',ru:'Лично от офицера CBSA → 15 дней',ko:'CBSA 직원에게 직접 → 15일',ro:'Personal de la un ofițer CBSA → 15 zile'}},
-      {v:'mail',e:'📬',l:{en:'By mail → 22 days to apply',es:'Por correo postal → 22 días para aplicar',fr:'Par courrier → 22 jours pour postuler',pt:'Por correio → 22 dias',ar:'بالبريد — 22 يوماً',hi:'डाक द्वारा → 22 दिन',zh:'邮件通知 → 22天',uk:'Поштою → 22 дні',ru:'По почте → 22 дня',ko:'우편으로 → 22일',ro:'Prin poștă → 22 zile'}}
-    ]},
-  {id:'notificationDate',type:'date',
-    q:{en:'What date did you receive the notification?',es:'¿Qué fecha recibiste la notificación?',fr:'À quelle date avez-vous reçu la notification?',pt:'Em que data recebeu a notificação?',ar:'ما التاريخ الذي تلقيت فيه الإشعار؟',hi:'अधिसूचना किस तारीख को मिली?',zh:'哪天收到通知的？',uk:'Яку дату ви отримали повідомлення?',ru:'Какого числа получили уведомление?',ko:'통보를 받은 날짜가 언제인가요?',ro:'Ce dată ați primit notificarea?'},
-    sub:{en:'This calculates your exact deadline',es:'Esto calcula tu fecha límite exacta',fr:'Cela calcule votre date limite exacte',ko:'정확한 마감일을 계산합니다',ro:'Aceasta calculează data limită exactă'}},
-];
-
-// Stage 2 — Legal profile questions
-const DQ2 = [
-  {id:'criminalRecord',type:'choice',
-    badge:{en:'⚖️ Determines your PRRA type',es:'⚖️ Determina el tipo de PRRA',fr:'⚖️ Détermine votre type de PRRA'},
-    q:{en:'Do you have a criminal record — in Canada or abroad?',es:'¿Tienes antecedentes penales — en Canadá o en el extranjero?',fr:'Avez-vous un casier judiciaire — au Canada ou à l\'étranger?',pt:'Você tem antecedentes criminais?',ar:'هل لديك سجل جنائي — في كندا أو في الخارج؟',hi:'क्या आपका कोई आपराधिक रिकॉर्ड है?',zh:'您是否有犯罪记录？',uk:'Чи є у вас судимість?',ru:'Есть ли у вас судимость?',ko:'캐나다 또는 해외에서 전과 기록이 있나요?',ro:'Aveți cazier judiciar?'},
-    hint:{en:'Answer honestly — this changes which risks can be evaluated in your PRRA (Full vs. Restricted). Your answer is stored only in your browser.',es:'Responde honestamente — esto determina qué riesgos pueden evaluarse en tu PRRA (Completo vs. Restringido). Tu respuesta solo se guarda en tu navegador.',fr:'Répondez honnêtement — cela détermine quels risques peuvent être évalués dans votre PRRA (Complet vs. Restreint).'},
-    opts:[
-      {v:'none',e:'✅',l:{en:'No criminal record',es:'Sin antecedentes penales',fr:'Aucun casier judiciaire',pt:'Sem antecedentes criminais',ar:'لا يوجد سجل جنائي',hi:'कोई आपराधिक रिकॉर्ड नहीं',zh:'没有犯罪记录',uk:'Немає судимості',ru:'Нет судимости',ko:'전과 기록 없음',ro:'Fără cazier judiciar'}},
-      {v:'minor',e:'⚠️',l:{en:'Minor offence (misdemeanor, fine, or summary conviction)',es:'Delito menor (infracción, multa, o condena sumaria)',fr:'Infraction mineure (contravention, amende ou déclaration sommaire de culpabilité)',pt:'Infração menor',ar:'جريمة بسيطة',hi:'छोटा अपराध',zh:'轻微违法',ko:'경미한 범죄',ro:'Infracțiune minoră'}},
-      {v:'serious',e:'🔴',l:{en:'Serious offence — sentenced to 2+ years in Canada, or crime with 10+ year max sentence',es:'Delito grave — condenado a 2+ años en Canadá, o delito con pena máxima de 10+ años',fr:'Infraction grave — condamné à 2+ ans au Canada, ou crime passible de 10+ ans',pt:'Infração grave',ar:'جريمة خطيرة',hi:'गंभीर अपराध',zh:'严重犯罪',ko:'중대 범죄',ro:'Infracțiune gravă'}},
-      {v:'unsure',e:'❓',l:{en:'Not sure / prefer not to say',es:'No estoy seguro/a / prefiero no decir',fr:'Je ne suis pas sûr(e) / préfère ne pas répondre',pt:'Não tenho certeza',ar:'غير متأكد / أفضل عدم الإجابة',hi:'निश्चित नहीं',zh:'不确定',ko:'확실하지 않음',ro:'Nu sunt sigur(ă)'}}
-    ]},
-  {id:'claimRejected',type:'choice',
-    badge:{en:'📋 Affects evidence rules',es:'📋 Afecta las reglas de evidencia',fr:'📋 Affecte les règles de preuve'},
-    q:{en:'Was your refugee claim previously rejected by the Immigration and Refugee Board (IRB)?',es:'¿Fue rechazada tu solicitud de refugio previamente por la Junta de Inmigración y Refugiados (IRB)?',fr:'Votre demande d\'asile a-t-elle été rejetée par la Commission de l\'immigration et du statut de réfugié (CISR)?',pt:'Seu pedido de refúgio foi rejeitado pelo IRB?',ar:'هل رُفض طلب اللجوء الخاص بك من قبل مجلس الهجرة واللاجئين؟',hi:'क्या आपका शरण आवेदन पहले IRB द्वारा अस्वीकार किया गया था?',zh:'您的难民申请是否曾被移民和难民委员会拒绝？',uk:'Чи відхиляло IRB вашу заявку на статус біженця?',ru:'Была ли ваша заявка на убежище отклонена IRB?',ko:'난민 신청이 이전에 IRB에 의해 거부된 적이 있나요?',ro:'Cererea de azil a fost respinsă de IRB?'},
-    hint:{en:'If yes, you can ONLY submit NEW evidence — evidence that arose after the rejection or was not available before. This is a strict legal rule under IRPA s.113(a).',es:'Si sí, SOLO puedes presentar evidencia NUEVA — evidencia que surgió después del rechazo o no estaba disponible antes. Es una regla legal estricta bajo IRPA s.113(a).',fr:'Si oui, vous ne pouvez soumettre QUE de nouvelles preuves — preuves apparues après le rejet ou qui n\'étaient pas disponibles auparavant. Règle stricte IRPA art.113(a).'},
-    opts:[
-      {v:'yes',e:'❌',l:{en:'Yes — my refugee claim was rejected by the IRB',es:'Sí — mi solicitud de refugio fue rechazada por el IRB',fr:'Oui — ma demande d\'asile a été rejetée par la CISR',pt:'Sim — foi rejeitada pelo IRB',ar:'نعم — رُفض طلبي من قبل IRB',hi:'हाँ — मेरी शरण याचिका IRB द्वारा अस्वीकार की गई',zh:'是 — 我的难民申请被IRB拒绝',ko:'예 — 난민 신청이 IRB에 의해 거부됨',ro:'Da — cererea mea a fost respinsă de IRB'}},
-      {v:'no',e:'✅',l:{en:'No — I never had a refugee claim, or it was withdrawn / abandoned',es:'No — nunca tuve solicitud de refugio, o fue retirada / abandonada',fr:'Non — je n\'ai jamais eu de demande d\'asile, ou elle a été retirée / abandonnée',pt:'Não — nunca tive um pedido de refúgio',ar:'لا — لم يسبق لي تقديم طلب لجوء',hi:'नहीं — मैंने कभी शरण आवेदन नहीं किया',zh:'否 — 我从未提交难民申请',ko:'아니요 — 난민 신청을 한 적 없음',ro:'Nu — nu am avut niciodată o cerere de azil'}},
-      {v:'unsure',e:'❓',l:{en:'Not sure',es:'No estoy seguro/a',fr:'Je ne suis pas sûr(e)',pt:'Não tenho certeza',ar:'غير متأكد',hi:'निश्चित नहीं',zh:'不确定',ko:'확실하지 않음',ro:'Nu sunt sigur(ă)'}}
-    ]},
-  {id:'riskType',type:'choice',
-    badge:{en:'✍️ Shapes your risk letter strategy',es:'✍️ Define la estrategia de tu carta',fr:'✍️ Oriente la stratégie de votre lettre'},
-    q:{en:'What best describes the nature of the risk you face if returned to your country?',es:'¿Qué describe mejor la naturaleza del riesgo que enfrentarías si te deportan a tu país?',fr:'Qu\'est-ce qui décrit le mieux la nature du risque que vous courrez si vous êtes renvoyé(e)?',pt:'O que melhor descreve o risco que você enfrentaria?',ar:'ما الذي يصف بشكل أفضل طبيعة الخطر الذي تواجهه؟',hi:'आप जिस जोखिम का सामना करते हैं उसकी प्रकृति क्या है?',zh:'回国后您面临的风险性质是什么？',uk:'Яка природа ризику, якому ви піддаєтеся?',ru:'Какова природа риска, которому вы подвергаетесь?',ko:'귀국 시 직면하는 위험의 성격은 무엇인가요?',ro:'Ce descrie cel mai bine riscul pe care îl înfruntați?'},
-    hint:{en:'This is not final — it helps us tailor your risk letter. You can address multiple risks in your submission.',es:'Esto no es definitivo — nos ayuda a personalizar tu carta de riesgos. Puedes abordar múltiples riesgos en tu escrito.',fr:'Ce n\'est pas définitif — cela nous aide à adapter votre lettre. Vous pouvez aborder plusieurs risques.'},
-    opts:[
-      {v:'persecution',e:'🎯',l:{en:'Persecution — targeted because of race, religion, nationality, political opinion, or membership in a social group (s.96)',es:'Persecución — soy blanco/a por raza, religión, nacionalidad, opinión política o pertenencia a un grupo social (art.96)',fr:'Persécution — ciblé(e) en raison de la race, religion, nationalité, opinion politique ou groupe social (art.96)',pt:'Perseguição por raça, religião, opinião política ou grupo social',ar:'اضطهاد — مستهدف بسبب العرق أو الدين أو الجنسية أو الرأي السياسي',hi:'उत्पीड़न — जाति, धर्म, राजनीतिक राय के कारण',zh:'迫害 — 因种族、宗教、政治观点等原因被针对',ko:'박해 — 인종, 종교, 국적, 정치적 의견으로 인한 박해 (s.96)',ro:'Persecuție — vizat din cauza rasei, religiei, opiniei politice (art.96)'}},
-      {v:'torture',e:'⚠️',l:{en:'Torture or risk to life — physical danger, death threats, risk of cruel treatment (s.97)',es:'Tortura o riesgo de vida — peligro físico, amenazas de muerte, riesgo de trato cruel (art.97)',fr:'Torture ou risque de vie — danger physique, menaces de mort, traitement cruel (art.97)',pt:'Tortura ou risco de vida — perigo físico, ameaças de morte',ar:'التعذيب أو خطر الحياة — خطر جسدي أو تهديد بالموت',hi:'यातना या जीवन का खतरा — शारीरिक खतरा',zh:'酷刑或生命风险 — 人身危险、死亡威胁 (s.97)',ko:'고문 또는 생명 위험 — 신체적 위험, 사망 위협 (s.97)',ro:'Tortură sau risc de viață — pericol fizic, amenințări (art.97)'}},
-      {v:'both',e:'🔴',l:{en:'Both — persecution AND physical danger / torture',es:'Ambos — persecución Y peligro físico / tortura',fr:'Les deux — persécution ET danger physique / torture',pt:'Ambos — perseguição e perigo físico',ar:'كلاهما — الاضطهاد والخطر الجسدي',hi:'दोनों — उत्पीड़न और शारीरिक खतरा',zh:'两者都有 — 迫害和人身危险',ko:'둘 다 — 박해와 신체적 위험 모두',ro:'Ambele — persecuție ȘI pericol fizic'}},
-      {v:'unsure',e:'❓',l:{en:'Not sure — I need help understanding what applies to me',es:'No estoy seguro/a — necesito ayuda para entender qué aplica en mi caso',fr:'Je ne suis pas sûr(e) — j\'ai besoin d\'aide pour comprendre ce qui s\'applique',pt:'Não tenho certeza',ar:'غير متأكد — أحتاج مساعدة',hi:'निश्चित नहीं — मुझे समझने में मदद चाहिए',zh:'不确定 — 需要帮助了解适用情况',ko:'확실하지 않음 — 이해하는 데 도움이 필요함',ro:'Nu sunt sigur(ă) — am nevoie de ajutor'}}
-    ]},
-  {id:'familyMembers',type:'choice',
-    badge:{en:'👨‍👩‍👧 Affects number of forms needed',es:'👨‍👩‍👧 Afecta el número de formularios',fr:'👨‍👩‍👧 Affecte le nombre de formulaires'},
-    q:{en:'Are family members included in your PRRA application?',es:'¿Hay familiares incluidos en tu solicitud PRRA?',fr:'Des membres de la famille sont-ils inclus dans votre demande PRRA?',pt:'Há membros da família incluídos na sua solicitação?',ar:'هل يشمل طلبك PRRA أفراداً من عائلتك؟',hi:'क्या आपके PRRA आवेदन में परिवार के सदस्य शामिल हैं?',zh:'您的PRRA申请中是否包含家庭成员？',uk:'Чи включені члени сім\'ї у вашу заявку?',ru:'Включены ли члены семьи в вашу заявку?',ko:'PRRA 신청에 가족 구성원이 포함되어 있나요?',ro:'Sunt incluși membrii familiei în cererea dvs.?'},
-    hint:{en:'Each family member 18 or older needs their own separate IMM 5508 form. Children under 18 can be included on a parent\'s form.',es:'Cada familiar de 18 años o más necesita su propio formulario IMM 5508 separado. Los menores de 18 años pueden incluirse en el formulario de uno de los padres.',fr:'Chaque membre de la famille de 18 ans ou plus a besoin de son propre formulaire IMM 5508. Les enfants de moins de 18 ans peuvent être inclus dans le formulaire d\'un parent.'},
-    opts:[
-      {v:'alone',e:'👤',l:{en:'No — I am applying alone',es:'No — solo aplico yo',fr:'Non — je postule seul(e)',pt:'Não — apenas eu',ar:'لا — أنا أتقدم بمفردي',hi:'नहीं — मैं अकेले आवेदन कर रहा/रही हूँ',zh:'否 — 只有我一人申请',ko:'아니요 — 혼자 신청',ro:'Nu — aplic singur(ă)'}},
-      {v:'spouse',e:'👫',l:{en:'Yes — spouse / partner (both adults, need separate forms)',es:'Sí — cónyuge / pareja (ambos adultos, formularios separados)',fr:'Oui — conjoint(e) / partenaire (deux adultes, formulaires séparés)',pt:'Sim — cônjuge/parceiro(a)',ar:'نعم — الزوج / الشريك',hi:'हाँ — पति/पत्नी/साथी',zh:'是 — 配偶/伴侣（两人都是成人，需要单独表格）',ko:'예 — 배우자/파트너',ro:'Da — soț/soție / partener(ă)'}},
-      {v:'children',e:'👨‍👩‍👧',l:{en:'Yes — children under 18 (can be included in my form)',es:'Sí — hijos menores de 18 (pueden incluirse en mi formulario)',fr:'Oui — enfants de moins de 18 ans (peuvent être inclus dans mon formulaire)',pt:'Sim — filhos menores de 18',ar:'نعم — أطفال دون 18 عاماً',hi:'हाँ — 18 वर्ष से कम बच्चे',zh:'是 — 18岁以下子女（可在我的表格上包含）',ko:'예 — 18세 미만 자녀',ro:'Da — copii sub 18 ani'}},
-      {v:'family',e:'👨‍👩‍👧‍👦',l:{en:'Yes — spouse AND children, or adult children 18+',es:'Sí — cónyuge E hijos, o hijos adultos de 18+',fr:'Oui — conjoint(e) ET enfants, ou enfants adultes 18+',pt:'Sim — cônjuge e filhos, ou filhos adultos',ar:'نعم — الزوج والأطفال أو أطفال بالغون',hi:'हाँ — पति/पत्नी और बच्चे, या 18+ वयस्क बच्चे',zh:'是 — 配偶和子女，或18岁以上成年子女',ko:'예 — 배우자와 자녀, 또는 성인 자녀 18+',ro:'Da — soț/soție ȘI copii, sau copii adulți 18+'}}
-    ]},
-  {id:'uci',type:'text',
-    q:{en:'Do you have a UCI / Client ID number from IRCC?',es:'¿Tienes un número de UCI / ID de Cliente de IRCC?',fr:'Avez-vous un numéro de référence client (UCI) de l\'IRCC?',pt:'Você tem um número de UCI do IRCC?',ar:'هل لديك رقم UCI / معرف العميل من IRCC؟',hi:'क्या आपके पास IRCC का UCI / क्लाइंट ID नंबर है?',zh:'您有IRCC的UCI/客户ID号码吗？',uk:'У вас є номер UCI від IRCC?',ru:'Есть ли у вас UCI от IRCC?',ko:'IRCC의 UCI/고객 ID 번호가 있나요?',ro:'Aveți un număr UCI / ID client de la IRCC?'},
-    sub:{en:'Found on any previous IRCC letter or decision. Write "none" if you don\'t have one — it will be assigned after you apply.',es:'Se encuentra en cualquier carta o decisión previa de IRCC. Escribe "ninguno" si no lo tienes — te lo asignarán después.',fr:'Trouvé sur toute lettre ou décision IRCC antérieure. Écrivez "aucun" si vous n\'en avez pas.'},
-    ph:{en:'e.g. 1234-5678 or "none"',es:'ej. 1234-5678 o "ninguno"',fr:'ex. 1234-5678 ou "aucun"'}},
-];
-
-// Which type of PRRA (derived from profile)
-const getPRRAType = (profile) => {
-  if(!profile) return 'full';
-  if(profile.criminalRecord === 'serious') return 'restricted';
-  return 'full';
+// ── GENERATING SCREEN ─────────────────────────────────────────────────────────
+const GEN_MSGS = {
+  en:["Analyzing your story…","Writing your submission letter…","Filling your official forms…","Almost ready…"],
+  es:["Analizando tu historia…","Escribiendo tu carta…","Llenando tus formularios oficiales…","Casi listo…"],
+  fr:["Analyse de votre histoire…","Rédaction de votre lettre…","Remplissage de vos formulaires officiels…","Presque prêt…"],
 };
 
-// Alert banner shown between Stage 1 and Stage 2
-function StageBridge({lang, profile}) {
-  const deadline = profile?.deadline;
-  const n = daysLeft(deadline);
-  const isRestricted = getPRRAType(profile) === 'restricted';
-  const labels = {
-    stage2title:{en:'Step 2 of 2 — Legal Profile',es:'Paso 2 de 2 — Perfil Legal',fr:'Étape 2 sur 2 — Profil juridique'},
-    stage2sub:{en:'5 quick questions that determine exactly how to guide your application.',es:'5 preguntas rápidas que determinan exactamente cómo guiar tu solicitud.',fr:'5 questions rapides qui déterminent exactement comment guider votre demande.'},
-    deadlineSet:{en:'✓ Deadline calculated',es:'✓ Fecha límite calculada',fr:'✓ Date limite calculée'},
-  };
-  const T = (obj) => obj?.[lang]||obj?.en||'';
-  return (
-    <div style={{minHeight:'100vh',background:'var(--bg)',display:'flex',alignItems:'center',justifyContent:'center',padding:'24px 16px'}}>
-      <div className="fi" style={{maxWidth:520,width:'100%'}}>
-        <div style={{background:'var(--tealp)',border:'2px solid #6bbdad',borderRadius:14,padding:'16px 20px',marginBottom:16,display:'flex',alignItems:'center',gap:14}}>
-          <div style={{fontSize:32}}>✅</div>
-          <div>
-            <div style={{fontWeight:700,color:'var(--teal)',fontSize:15}}>{T(labels.deadlineSet)}: {fmtDate(deadline)}</div>
-            <div style={{color:'var(--teal)',fontSize:13,opacity:.85}}>
-              {n!==null?`${Math.max(0,n)} ${lang==='es'?'días restantes':lang==='fr'?'jours restants':'days remaining'}`:''}
-            </div>
-          </div>
-        </div>
-        <div style={{background:'var(--paper)',borderRadius:14,padding:'28px 24px',boxShadow:'0 2px 24px rgba(30,58,92,.08)'}}>
-          <div style={{fontSize:11,color:'var(--ink3)',fontWeight:700,letterSpacing:'1.5px',textTransform:'uppercase',marginBottom:8}}>⚖️ PRRA Guide</div>
-          <h2 style={{fontFamily:'Playfair Display,serif',fontSize:24,color:'var(--ink)',marginBottom:8}}>{T(labels.stage2title)}</h2>
-          <p style={{color:'var(--ink2)',fontSize:14,lineHeight:1.65,marginBottom:24}}>{T(labels.stage2sub)}</p>
-          <Btn onClick={()=>{}} style={{width:'100%',padding:'14px',fontSize:15}}>
-            {lang==='es'?'Continuar →':lang==='fr'?'Continuer →':'Continue →'}
-          </Btn>
-        </div>
-      </div>
-    </div>
-  );
-}
+function GeneratingScreen({lang, answers, onDone}) {
+  const [msgIdx, setMsgIdx] = useState(0);
+  const msgs = GEN_MSGS[lang]||GEN_MSGS.en;
 
-function Diagnosis({lang, onDone}) {
-  const [stage, setStage] = useState(1); // 1 = deadline, 'bridge', 2 = legal profile
-  const [idx,setIdx] = useState(0);
-  const [ans,setAns] = useState({});
-  const [txt,setTxt] = useState('');
-  const [k,setK] = useState(0);
-  const T = useCallback((obj) => obj?.[lang]||obj?.en||'', [lang]);
-
-  const currentQS = stage===1 ? DQ1 : DQ2;
-  const totalQ = DQ1.length + DQ2.length;
-  const globalIdx = stage===1 ? idx : DQ1.length + idx;
-  const pct = Math.round((globalIdx / totalQ) * 100);
-  const cur = stage==='bridge' ? null : currentQS[idx];
-
-  const next = (id, val) => {
-    const na = {...ans,[id]:val};
-    setAns(na); setTxt('');
-    if(stage===1){
-      if(idx+1<DQ1.length){setTimeout(()=>{setIdx(i=>i+1);setK(k=>k+1);},160);}
-      else{
-        // calculate deadline, move to bridge
-        const days = na.notificationMethod==='inperson'?15:22;
-        const deadline = addDays(na.notificationDate, days);
-        setAns({...na,deadline});
-        setStage('bridge');
-      }
-    } else {
-      if(idx+1<DQ2.length){setTimeout(()=>{setIdx(i=>i+1);setK(k=>k+1);},160);}
-      else{
-        // derive PRRA type and finalise
-        const prraType = na.criminalRecord==='serious'?'restricted':'full';
-        const newEvOnly = na.claimRejected==='yes';
-        onDone({...na, prraType, newEvOnly});
-      }
-    }
-  };
-
-  // Bridge screen
-  if(stage==='bridge'){
-    const deadline = ans.deadline;
-    const n = daysLeft(deadline);
-    return (
-      <div style={{minHeight:'100vh',background:'var(--bg)',display:'flex',alignItems:'center',justifyContent:'center',padding:'24px 16px'}}>
-        <div className="fi" style={{maxWidth:520,width:'100%'}}>
-          <div style={{background:'var(--tealp)',border:'2px solid #6bbdad',borderRadius:14,padding:'16px 20px',marginBottom:16,display:'flex',alignItems:'center',gap:14}}>
-            <div style={{fontSize:32}}>✅</div>
-            <div>
-              <div style={{fontWeight:700,color:'var(--teal)',fontSize:15}}>
-                {lang==='es'?'✓ Fecha límite calculada':lang==='fr'?'✓ Date limite calculée':'✓ Deadline calculated'}: {fmtDate(deadline)}
-              </div>
-              <div style={{color:'var(--teal)',fontSize:13,opacity:.85}}>
-                {n!==null?`${Math.max(0,n)} ${lang==='es'?'días restantes':lang==='fr'?'jours restants':'days remaining'}`:''}
-              </div>
-            </div>
-          </div>
-          <div style={{background:'var(--paper)',borderRadius:14,padding:'28px 24px',boxShadow:'0 2px 24px rgba(30,58,92,.08)'}}>
-            <div style={{fontSize:11,color:'var(--ink3)',fontWeight:700,letterSpacing:'1.5px',textTransform:'uppercase',marginBottom:8}}>⚖️ PRRA Guide — Step 2 of 2</div>
-            <h2 style={{fontFamily:'Playfair Display,serif',fontSize:24,color:'var(--ink)',marginBottom:8}}>
-              {lang==='es'?'Perfil Legal':lang==='fr'?'Profil juridique':'Legal Profile'}
-            </h2>
-            <p style={{color:'var(--ink2)',fontSize:14,lineHeight:1.65,marginBottom:24}}>
-              {lang==='es'?'4 preguntas rápidas que determinan exactamente cómo guiar tu solicitud. Tus respuestas sólo se guardan en tu navegador.':
-               lang==='fr'?'4 questions rapides qui déterminent exactement comment guider votre demande. Vos réponses sont stockées uniquement dans votre navigateur.':
-               '4 quick questions that determine exactly how to guide your application. Your answers are stored only in your browser.'}
-            </p>
-            <Btn onClick={()=>{setStage(2);setIdx(0);setK(k=>k+1);}} style={{width:'100%',padding:'14px',fontSize:15}}>
-              {lang==='es'?'Continuar →':lang==='fr'?'Continuer →':'Continue →'}
-            </Btn>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  const isCriminalWarning = stage===2 && cur?.id==='criminalRecord';
-  const badgeText = cur?.badge?.[lang]||cur?.badge?.en;
-
-  return (
-    <div style={{minHeight:'100vh',background:'var(--bg)',padding:'24px 16px',display:'flex',flexDirection:'column',alignItems:'center'}}>
-      <div style={{width:'100%',maxWidth:580,height:4,background:'#d8d0c4',borderRadius:2,marginBottom:28}}>
-        <div style={{height:4,width:`${pct}%`,background:'var(--navy)',borderRadius:2,transition:'width .35s ease'}}/>
-      </div>
-      {cur&&(
-        <div className="sl" key={k} style={{background:'var(--paper)',borderRadius:18,padding:'32px 28px',maxWidth:580,width:'100%',boxShadow:'0 2px 24px rgba(30,58,92,.08)'}}>
-          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
-            <div style={{fontSize:11,color:'var(--ink3)',fontWeight:700,letterSpacing:'1.5px',textTransform:'uppercase'}}>
-              {globalIdx+1} / {totalQ}
-            </div>
-            {badgeText&&<div style={{fontSize:11,color:'var(--navy)',fontWeight:700,background:'var(--navyl)',padding:'3px 10px',borderRadius:20}}>{badgeText}</div>}
-          </div>
-          <h2 style={{fontFamily:'Playfair Display,serif',fontSize:'clamp(17px,3vw,22px)',color:'var(--ink)',marginBottom:cur.hint||cur.sub?8:20,lineHeight:1.35}}>{T(cur.q)}</h2>
-          {(cur.hint||cur.sub)&&(
-            <div style={{background:isCriminalWarning?'var(--amberp)':'var(--navyl)',borderRadius:9,padding:'10px 14px',marginBottom:18,fontSize:13,color:isCriminalWarning?'var(--amber)':'var(--navy)',lineHeight:1.6}}>
-              {isCriminalWarning?'⚠️ ':'ℹ️ '}{T(cur.hint||cur.sub)}
-            </div>
-          )}
-          {cur.type==='text'&&(
-            <div style={{display:'flex',flexDirection:'column',gap:10}}>
-              <input value={txt} onChange={e=>setTxt(e.target.value)} onKeyDown={e=>e.key==='Enter'&&txt.trim()&&next(cur.id,txt.trim())}
-                placeholder={T(cur.ph)||''}
-                style={{border:'2px solid var(--brd)',borderRadius:10,padding:'12px 15px',fontSize:15,color:'var(--ink)',background:'var(--paper2)',outline:'none',transition:'border-color .2s'}}
-                onFocus={e=>e.target.style.borderColor='var(--navy)'} onBlur={e=>e.target.style.borderColor='var(--brd)'} autoFocus/>
-              <Btn onClick={()=>txt.trim()&&next(cur.id,txt.trim())} disabled={!txt.trim()} style={{width:'100%',padding:'13px'}}>
-                {lang==='es'?'Continuar →':lang==='fr'?'Continuer →':'Continue →'}
-              </Btn>
-              {cur.id==='uci'&&<button onClick={()=>next(cur.id,'none')} style={{background:'none',border:'none',color:'var(--ink3)',fontFamily:'Inter,sans-serif',fontSize:13,cursor:'pointer',padding:'4px 0',textDecoration:'underline'}}>
-                {lang==='es'?'No tengo UCI — saltar':lang==='fr'?'Je n\'ai pas de UCI — ignorer':'I don\'t have a UCI — skip'}
-              </button>}
-            </div>
-          )}
-          {cur.type==='date'&&(
-            <div style={{display:'flex',flexDirection:'column',gap:10}}>
-              <div style={{position:'relative'}}>
-                <input
-                  type="date"
-                  value={txt}
-                  onChange={e=>setTxt(e.target.value)}
-                  max={new Date().toISOString().split('T')[0]}
-                  style={{
-                    width:'100%',
-                    border:'2px solid var(--brd)',
-                    borderRadius:10,
-                    padding:'13px 15px',
-                    fontSize:16,
-                    fontFamily:'Inter,sans-serif',
-                    color:'#1c2533',
-                    background:'#ffffff',
-                    outline:'none',
-                    WebkitAppearance:'none',
-                    appearance:'none',
-                    display:'block',
-                    boxSizing:'border-box',
-                    cursor:'pointer',
-                  }}
-                  onFocus={e=>e.target.style.borderColor='var(--navy)'}
-                  onBlur={e=>e.target.style.borderColor='var(--brd)'}
-                />
-                {!txt&&(
-                  <div style={{position:'absolute',top:'50%',transform:'translateY(-50%)',left:15,color:'#9ca3af',fontSize:14,pointerEvents:'none',fontFamily:'Inter,sans-serif'}}>
-                    {lang==='es'?'Selecciona la fecha':lang==='fr'?'Sélectionnez la date':'Select date'}
-                  </div>
-                )}
-              </div>
-              <Btn onClick={()=>txt&&next(cur.id,txt)} disabled={!txt} style={{width:'100%',padding:'13px'}}>
-                {lang==='es'?'Continuar →':lang==='fr'?'Continuer →':'Continue →'}
-              </Btn>
-            </div>
-          )}
-          {cur.type==='choice'&&(
-            <div style={{display:'flex',flexDirection:'column',gap:9}}>
-              {cur.opts.map(o=>(
-                <button key={String(o.v)} onClick={()=>next(cur.id,o.v)}
-                  style={{background:'var(--paper2)',border:'2px solid var(--brd)',borderRadius:11,padding:'13px 16px',textAlign:'left',cursor:'pointer',fontFamily:'Inter,sans-serif',fontSize:14,fontWeight:500,color:'var(--ink)',display:'flex',alignItems:'center',gap:12,transition:'all .15s',outline:'none'}}
-                  onMouseEnter={e=>{e.currentTarget.style.borderColor='var(--navy)';e.currentTarget.style.background='var(--navyl)';e.currentTarget.style.transform='translateX(3px)';}}
-                  onMouseLeave={e=>{e.currentTarget.style.borderColor='var(--brd)';e.currentTarget.style.background='var(--paper2)';e.currentTarget.style.transform='none';}}>
-                  <span style={{fontSize:19,flexShrink:0,width:26,textAlign:'center'}}>{o.e}</span>
-                  <span>{T(o.l)}</span>
-                </button>
-              ))}
-            </div>
-          )}
-          {(idx>0||(stage===2))&&(
-            <button onClick={()=>{
-              if(idx>0){setIdx(i=>i-1);setK(k=>k+1);}
-              else if(stage===2){setStage('bridge');setIdx(0);}
-            }} style={{background:'none',border:'none',color:'var(--ink3)',fontFamily:'Inter,sans-serif',fontSize:12,cursor:'pointer',marginTop:14,padding:'4px 0'}}>
-              {UI.back?.[lang]||'← Back'}
-            </button>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ── CHECKLIST ─────────────────────────────────────────────────────────────────// ── CHECKLIST ─────────────────────────────────────────────────────────────────
-const ITEMS = [
-  {id:'imm5508',cat:'forms',icon:'📄',
-    en:{t:'Form IMM 5508',d:'The main PRRA application form. Given to you IN PERSON by your CBSA officer. NOT downloadable online. Each family member 18+ needs their own SEPARATE copy — this is a strict requirement.',tip:'Ask your CBSA officer for extra blank copies when they give you the kit. If you have adult family members (18+), make sure each has their own form.'},
-    es:{t:'Formulario IMM 5508',d:'El formulario principal de solicitud PRRA. Te lo entrega EN PERSONA tu oficial de la CBSA. NO se puede descargar en línea. Cada familiar de 18+ necesita su propia copia.',tip:'Pide copias adicionales en blanco a tu oficial de la CBSA cuando te entreguen el kit.'},
-    fr:{t:'Formulaire IMM 5508',d:'Le formulaire principal de demande PRRA. Remis EN PERSONNE par votre agent CBSA. NON téléchargeable en ligne. Chaque membre de la famille 18+ a besoin de sa propre copie.',tip:'Demandez des copies supplémentaires vierges à votre agent CBSA.'}},
-  {id:'identity',cat:'docs',icon:'🪪',
-    en:{t:'Identity documents (photocopies)',d:'Passport, national ID card, birth certificate, or any government-issued identity document. Bring originals and make clear photocopies of every page including cover.'},
-    es:{t:'Documentos de identidad (fotocopias)',d:'Pasaporte, INE, cédula de identidad, acta de nacimiento, o cualquier documento de identidad gubernamental. Lleva originales y saca fotocopias claras de cada página incluyendo la portada.'},
-    fr:{t:'Documents d\'identité (photocopies)',d:'Passeport, carte d\'identité nationale, acte de naissance, ou tout document d\'identité officiel. Apportez les originaux et faites des photocopies nettes de chaque page.'}},
-  {id:'family',cat:'docs',icon:'👨‍👩‍👧',
-    en:{t:'Family / relationship documents',d:'Marriage certificate, children\'s birth certificates, proof of common-law relationship. Required if family members are included in your application.'},
-    es:{t:'Documentos familiares',d:'Acta de matrimonio, actas de nacimiento de hijos, prueba de unión libre. Necesarios si incluyes familiares en tu solicitud.'},
-    fr:{t:'Documents familiaux',d:'Certificat de mariage, actes de naissance des enfants, preuve de relation de fait. Requis si des membres de la famille sont inclus dans votre demande.'}},
-  {id:'translations',cat:'docs',icon:'🌐',
-    en:{t:'Certified translations',d:'EVERY document not in English or French must have: (1) a copy of the original, (2) a certified/stamped translation, and (3) a translator declaration with their name, original language, and a statement that the translation is accurate. Family members CANNOT translate.',tip:'Documents without translations will not be considered — even if the content is important.'},
-    es:{t:'Traducciones certificadas',d:'CADA documento que no esté en inglés o francés debe tener: (1) copia del original, (2) una traducción certificada/sellada, y (3) una declaración del traductor con su nombre, idioma original y confirmación de exactitud. Los familiares NO pueden traducir.',tip:'Los documentos sin traducción no serán considerados — aunque el contenido sea importante.'},
-    fr:{t:'Traductions certifiées',d:'TOUT document non en anglais ou français doit avoir : (1) une copie de l\'original, (2) une traduction certifiée/tamponée, et (3) une déclaration du traducteur avec son nom, la langue originale et une attestation d\'exactitude. Les membres de la famille NE PEUVENT PAS traduire.',tip:'Les documents sans traduction ne seront pas pris en compte — même si le contenu est important.'}},
-  {id:'riskletter',cat:'submissions',icon:'✍️',
-    en:{t:'Written submissions (risk letter)',d:'Your letter answering the 5 official risk questions. This is THE most important document for your case — it explains why returning to your country puts you at risk. Use the Risk Letter Builder section to create it.',tip:'Be specific and personal. Generic answers are less convincing than concrete details from your own experience.'},
-    es:{t:'Escrito de riesgos (carta)',d:'Tu carta respondiendo las 5 preguntas oficiales de riesgo. Este es EL documento más importante de tu caso — explica por qué regresar a tu país te pone en riesgo. Usa la sección Constructor de Carta de Riesgos para crearlo.',tip:'Sé específico y personal. Las respuestas genéricas convencen menos que detalles concretos de tu propia experiencia.'},
-    fr:{t:'Observations écrites (lettre de risques)',d:'Votre lettre répondant aux 5 questions officielles sur les risques. C\'est LE document le plus important de votre dossier. Utilisez la section Rédacteur de Lettre de Risques pour la créer.',tip:'Soyez précis et personnel. Les réponses génériques sont moins convaincantes que des détails concrets de votre vécu.'}},
-  {id:'country_docs',cat:'submissions',icon:'📰',
-    en:{t:'Country condition evidence',d:'News articles, Amnesty International or Human Rights Watch reports, UN reports, government travel advisories — anything that shows conditions in your country create risk for people like you.'},
-    es:{t:'Evidencia de condiciones del país',d:'Artículos de noticias, reportes de Amnistía Internacional o Human Rights Watch, reportes de la ONU, avisos de viaje del gobierno — todo lo que muestre que las condiciones en tu país crean riesgo para personas como tú.'},
-    fr:{t:'Preuves sur les conditions du pays',d:'Articles de presse, rapports d\'Amnesty International ou de Human Rights Watch, rapports ONU, avis aux voyageurs — tout ce qui montre que les conditions dans votre pays créent un risque pour des personnes comme vous.'}},
-  {id:'personal_docs',cat:'submissions',icon:'📁',
-    en:{t:'Personal supporting documents',d:'Police reports, medical records, court documents, threatening letters or messages, photos of injuries, written testimonies from witnesses, personal letters. Any personal evidence that supports your specific risk.'},
-    es:{t:'Documentos personales de apoyo',d:'Reportes policiales, expedientes médicos, documentos judiciales, cartas o mensajes de amenaza, fotos de lesiones, testimonios escritos de testigos, cartas personales. Toda evidencia personal que apoye tu riesgo específico.'},
-    fr:{t:'Documents personnels de soutien',d:'Rapports de police, dossiers médicaux, documents judiciaires, lettres ou messages de menace, photos de blessures, témoignages écrits de témoins, lettres personnelles. Toute preuve personnelle appuyant votre risque spécifique.'}},
-  {id:'imm5476',cat:'forms',icon:'👤',
-    link:'https://www.canada.ca/content/dam/ircc/migration/ircc/english/pdf/kits/forms/imm5476e.pdf',
-    linkLabel:{en:'Download IMM 5476 (PDF)',es:'Descargar IMM 5476 (PDF)',fr:'Télécharger IMM 5476 (PDF)'},
-    en:{t:'Form IMM 5476 (if you have a representative)',d:'Use of a Representative form. Needed if ANYONE helps you and acts on your behalf — paid or unpaid, family or friend. Build it in the IMM 5476 section or download the official PDF.',tip:'Even an unpaid friend or family member helping you act on your behalf requires this form.'},
-    es:{t:'Formulario IMM 5476 (si tienes representante)',d:'Formulario de Uso de Representante. Necesario si ALGUIEN actúa en tu nombre — pagado o no. Genéralo en la sección IMM 5476 o descarga el PDF oficial.',tip:'Incluso un familiar no pagado que actúe en tu nombre requiere este formulario.'},
-    fr:{t:'Formulaire IMM 5476 (si vous avez un représentant)',d:"Formulaire d'utilisation d\'un représentant. Requis si quelqu\'un agit en votre nom. Générez-le dans la section IMM 5476 ou téléchargez le PDF officiel.",tip:"Même un ami non rémunéré agissant en votre nom nécessite ce formulaire."}},
-  {id:'imm5475',cat:'forms',icon:'📋',
-    link:'https://www.canada.ca/content/dam/ircc/migration/ircc/english/pdf/kits/forms/imm5475e.pdf',
-    linkLabel:{en:'Download IMM 5475 (PDF)',es:'Descargar IMM 5475 (PDF)',fr:'Télécharger IMM 5475 (PDF)'},
-    en:{t:'Form IMM 5475 — Authority to release info (optional)',d:'Allows IRCC to share your file information with a designated person (family, friend). Different from a representative — they only receive information, do not act on your behalf.',tip:'Optional but useful if a trusted person needs to follow up on your file without formally representing you.'},
-    es:{t:'Formulario IMM 5475 — Autorización para compartir información (opcional)',d:'Permite a IRCC compartir información de tu expediente con una persona de confianza. No actúa en tu nombre, solo recibe información.',tip:'Opcional pero útil si un familiar necesita dar seguimiento a tu expediente sin ser tu representante formal.'},
-    fr:{t:'Formulaire IMM 5475 — Autorisation de divulguer (optionnel)',d:"Permet à IRCC de partager les informations de votre dossier avec une personne désignée. Elle ne vous représente pas.",tip:"Optionnel mais utile si un proche doit faire le suivi de votre dossier."}},
-];
-
-function ChecklistScreen({lang, profile, checklist, onChange}) {
-  const T = (item) => item[lang]||item.en;
-  const done = ITEMS.filter(i=>checklist[i.id]).length;
-  const pct = Math.round((done/ITEMS.length)*100);
-  const cats = [
-    {k:'forms',l:'📋 Required Forms'},
-    {k:'docs',l:'🗂️ Identity & Supporting Documents'},
-    {k:'submissions',l:'✍️ Written Submissions & Evidence'},
-  ];
-  return (
-    <div>
-      {profile?.familyMembers&&profile.familyMembers!=='alone'&&profile.familyMembers!=='children'&&(
-        <div style={{background:'var(--amberp)',border:'1.5px solid #fcd34d',borderRadius:12,padding:'12px 16px',marginBottom:14,fontSize:13,color:'var(--amber)',lineHeight:1.6,fontWeight:600}}>
-          👨‍👩‍👧 {lang==='es'?'Tienes familiares adultos en tu solicitud. Cada persona de 18 años o más necesita su PROPIO formulario IMM 5508 firmado por separado. Asegúrate de tener una copia en blanco por cada adulto.':
-             lang==='fr'?'Vous avez des membres de famille adultes dans votre demande. Chaque personne de 18 ans ou plus a besoin de son PROPRE formulaire IMM 5508 signé séparément.':
-             'You have adult family members in your application. Each person 18 or older needs their OWN separate signed IMM 5508 form. Make sure you have a blank copy for each adult.'}
-        </div>
-      )}
-      <div style={{background:'var(--navyl)',borderRadius:12,padding:'14px 18px',marginBottom:18,display:'flex',alignItems:'center',gap:16}}>
-        <div style={{flex:1}}>
-          <div style={{fontWeight:600,color:'var(--navy)',marginBottom:5,fontSize:14}}>{done} of {ITEMS.length} items ready</div>
-          <div style={{height:6,background:'#b8cfe0',borderRadius:3,overflow:'hidden'}}>
-            <div style={{height:6,width:`${pct}%`,background:'var(--navy)',borderRadius:3,transition:'width .5s ease'}}/>
-          </div>
-        </div>
-        <div style={{fontFamily:'Playfair Display,serif',fontSize:30,color:'var(--navy)',fontWeight:700}}>{pct}%</div>
-      </div>
-      {cats.map(cat=>(
-        <div key={cat.k} style={{marginBottom:18}}>
-          <div style={{fontSize:11,fontWeight:700,color:'var(--ink3)',textTransform:'uppercase',letterSpacing:'1.5px',marginBottom:10}}>{cat.l}</div>
-          {ITEMS.filter(i=>i.cat===cat.k).map(item=>{
-            const info=T(item);const isDone=checklist[item.id];
-            return (
-              <div key={item.id} onClick={()=>onChange(item.id,!isDone)}
-                style={{background:isDone?'var(--tealp)':'var(--paper)',border:`1.5px solid ${isDone?'#86c9b8':'var(--brd)'}`,borderRadius:12,padding:'14px 16px',marginBottom:8,cursor:'pointer',transition:'all .18s',display:'flex',gap:13,alignItems:'flex-start'}}>
-                <div style={{width:22,height:22,borderRadius:6,border:`2px solid ${isDone?'var(--teal)':'#c8bfb0'}`,background:isDone?'var(--teal)':'transparent',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,marginTop:1,transition:'all .18s'}}>
-                  {isDone&&<span style={{color:'#fff',fontSize:12,fontWeight:800}}>✓</span>}
-                </div>
-                <div style={{flex:1}}>
-                  <div style={{fontWeight:600,fontSize:14,color:isDone?'var(--teal)':'var(--ink)',marginBottom:4,display:'flex',gap:8,alignItems:'center'}}>
-                    <span>{item.icon}</span><span>{info.t}</span>
-                  </div>
-                  <p style={{fontSize:13,color:'var(--ink2)',lineHeight:1.6}}>{info.d}</p>
-                  {info.tip&&<div style={{fontSize:12,color:'var(--amber)',fontWeight:600,marginTop:6,display:'flex',gap:5,alignItems:'flex-start'}}><span>💡</span><span>{info.tip}</span></div>}
-                  {item.link&&(
-                    <a href={item.link} target="_blank" rel="noreferrer"
-                      onClick={e=>e.stopPropagation()}
-                      style={{display:'inline-flex',alignItems:'center',gap:5,marginTop:8,padding:'5px 12px',background:'var(--navyl)',color:'var(--navy)',borderRadius:7,fontSize:12,fontWeight:700,textDecoration:'none',border:'1px solid #b8cfe0'}}>
-                      ⬇️ {item.linkLabel?.[lang]||item.linkLabel?.en||'Download PDF'}
-                    </a>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      ))}
-    </div>
-  );
-}
-
-// ── RISK LETTER ───────────────────────────────────────────────────────────────
-const RQS = [
-  {id:'q1',
-    en:'Why would you be at risk or in danger if returned to your country?',
-    es:'¿Por qué estarías en riesgo o peligro si te regresan a tu país?',
-    fr:'Pourquoi seriez-vous en danger si vous retourniez dans votre pays?',
-    hint:{en:'Describe the specific group, authority, or situation that threatens you. Who threatens you and why?',es:'Describe el grupo específico, autoridad o situación que te amenaza. ¿Quién te amenaza y por qué?',fr:'Décrivez le groupe, l\'autorité ou la situation spécifique qui vous menace. Qui vous menace et pourquoi?'}},
-  {id:'q2',
-    en:'What kind of risks or danger would you face, and why?',
-    es:'¿Qué tipo de riesgos o peligros enfrentarías, y por qué?',
-    fr:'Quels types de risques ou de dangers rencontreriez-vous, et pourquoi?',
-    hint:{en:'Be specific: physical harm, imprisonment, torture, death? What has already happened to you or others like you?',es:'Sé específico: ¿daño físico, encarcelamiento, tortura, muerte? ¿Qué ya te ha pasado a ti o a personas como tú?',fr:'Soyez précis : préjudices physiques, emprisonnement, torture, mort? Qu\'est-il déjà arrivé à vous ou à d\'autres personnes comme vous?'}},
-  {id:'q3',
-    en:'How do these risks concern you DIRECTLY and PERSONALLY?',
-    es:'¿Cómo te afectan estos riesgos a TI directa y personalmente?',
-    fr:'Comment ces risques vous concernent-ils DIRECTEMENT et PERSONNELLEMENT?',
-    hint:{en:'This is critical. Explain specific incidents that happened TO YOU, threats you received, why YOU specifically are targeted.',es:'Esto es crítico. Explica incidentes específicos que TE pasaron a TI, amenazas que recibiste, por qué TÚ específicamente eres blanco.',fr:'C\'est crucial. Expliquez les incidents spécifiques qui vous sont arrivés À VOUS, les menaces que vous avez reçues, pourquoi VOUS spécifiquement êtes ciblé(e).'}},
-  {id:'q4',
-    en:'Could you escape these risks by moving to another city or region in your country?',
-    es:'¿Podrías escapar de estos riesgos mudándote a otra ciudad o región de tu país?',
-    fr:'Pourriez-vous échapper à ces risques en déménageant dans une autre ville ou région de votre pays?',
-    hint:{en:'Explain why you cannot find safety by relocating within your country. Is the threat nationwide? From the government itself?',es:'Explica por qué no puedes encontrar seguridad reubicándote dentro de tu país. ¿La amenaza es a nivel nacional? ¿Del propio gobierno?',fr:'Expliquez pourquoi vous ne pouvez pas trouver la sécurité en vous déplaçant dans votre pays. La menace est-elle nationale? Vient-elle du gouvernement lui-même?'}},
-  {id:'q5',
-    en:'How does your situation compare to the rest of the population in your country?',
-    es:'¿Cómo se compara tu situación con la del resto de la población de tu país?',
-    fr:'Comment votre situation se compare-t-elle à celle du reste de la population de votre pays?',
-    hint:{en:'Are you being singled out? Why is your risk greater than that of the general population? What makes your case unique?',es:'¿Te están señalando específicamente? ¿Por qué tu riesgo es mayor que el de la población general? ¿Qué hace tu caso único?',fr:'Êtes-vous spécifiquement ciblé(e)? Pourquoi votre risque est-il plus grand que celui de la population générale? Qu\'est-ce qui rend votre cas unique?'}},
-];
-
-function RiskLetterBuilder({lang, profile, riskLetter, onChange, apiKey}) {
-  const [activeQ,setActiveQ] = useState(0);
-  const [generating,setGenerating] = useState(false);
-  const [letter,setLetter] = useState('');
-  const [showLetter,setShowLetter] = useState(false);
-  const [copied,setCopied] = useState(false);
-  const T = (obj) => obj?.[lang]||obj?.en||'';
-  const answered = RQS.filter(q=>riskLetter[q.id]?.trim()).length;
-
-  const generate = async() => {
-    setGenerating(true);
-    const content = RQS.map((q,i)=>`Q${i+1}: ${q.en}\nAnswer: ${riskLetter[q.id]||'(not provided)'}`).join('\n\n');
-    const prompt = `The following are a PRRA applicant's answers to the 5 official risk questions. Write a complete, professional written submission letter in formal English, addressed "Dear Officer,". The letter should: be well-organized with clear structure, address all 5 questions comprehensively, present the information compellingly but honestly, use formal but clear language, and be formatted for submission to IRCC. Expand thoughtfully on what\'s provided. End with a professional closing. Do not add false information — only expand on what\'s given.\n\nApplicant country of origin: ${profile?.country||'unknown'}\n\n${content}`;
-    try {
-      const text = await callAPI([{role:'user',content:prompt}], buildSys(lang,profile));
-      setLetter(text);
-      setShowLetter(true);
-    } catch(e) { console.error(e); }
-    setGenerating(false);
-  };
-
-  const copyLetter = () => {
-    navigator.clipboard.writeText(letter);
-    setCopied(true);
-    setTimeout(()=>setCopied(false),2000);
-  };
-
-  if(showLetter) return (
-    <div>
-      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:14}}>
-        <h3 style={{fontFamily:'Playfair Display,serif',fontSize:19,color:'var(--ink)'}}>Your Written Submission</h3>
-        <Btn onClick={()=>setShowLetter(false)} variant="secondary" style={{padding:'7px 14px',fontSize:13}}>← Edit</Btn>
-      </div>
-      <div style={{background:'var(--amberp)',borderRadius:10,padding:'12px 16px',marginBottom:14,fontSize:13,color:'var(--amber)',lineHeight:1.6}}>
-        <strong>⚠️ Before submitting:</strong> Review carefully. Correct any inaccuracies. Add details you didn\'t include in your answers. This letter must reflect your true situation. If any information is wrong, fix it before submitting.
-      </div>
-      <div style={{background:'var(--paper)',border:'1px solid var(--brd)',borderRadius:12,padding:'24px',marginBottom:14,lineHeight:1.8,fontSize:14,color:'var(--ink)',whiteSpace:'pre-wrap',fontFamily:'Georgia,serif',maxHeight:500,overflowY:'auto'}}>{letter}</div>
-      <div style={{display:'flex',gap:10}}>
-        <Btn onClick={copyLetter} variant={copied?'success':'primary'} style={{flex:1,padding:'12px'}}>{copied?'✓ Copied!':'📋 Copy to clipboard'}</Btn>
-        <Btn onClick={()=>{const b=new Blob([letter],{type:'text/plain'});const u=URL.createObjectURL(b);const a=document.createElement('a');a.href=u;a.download='PRRA_Written_Submission.txt';a.click();}} variant="secondary" style={{flex:1,padding:'12px'}}>💾 Download .txt</Btn>
-      </div>
-    </div>
-  );
-
-  return (
-    <div>
-      {profile?.prraType==='restricted'&&(
-        <div style={{background:'var(--redp)',borderRadius:12,padding:'14px 18px',marginBottom:14,fontSize:13,color:'var(--red)',lineHeight:1.65,fontWeight:600}}>
-          ⚠️ {lang==='es'?'Tu PRRA es RESTRINGIDO (IRPA s.112(3)). Solo puedes argumentar riesgo de tortura, peligro de vida o trato cruel (Art. 97). NO argumentes persecución por raza, religión, etc. (Art. 96) — no aplica a tu caso. Considera consultar un RCIC o abogado.':
-             lang==='fr'?'Votre PRRA est RESTREINT (LIPR art.112(3)). Vous ne pouvez argumenter que le risque de torture, le danger de vie ou traitement cruel (art.97). NE PAS argumenter la persécution (art.96) — ne s\'applique pas à votre cas. Consultez un CRIC ou avocat.':
-             'Your PRRA is RESTRICTED (IRPA s.112(3)). You can only argue risk of torture, life risk, or cruel treatment (s.97). Do NOT argue persecution based on race, religion, etc. (s.96) — it does not apply to your case. Consider consulting an RCIC or immigration lawyer.'}
-        </div>
-      )}
-      {profile?.claimRejected==='yes'&&(
-        <div style={{background:'var(--amberp)',borderRadius:12,padding:'14px 18px',marginBottom:14,fontSize:13,color:'var(--amber)',lineHeight:1.65,fontWeight:600}}>
-          ⚠️ {lang==='es'?'Tu solicitud de refugio fue rechazada por el IRB. Bajo IRPA s.113(a), SOLO puedes presentar evidencia NUEVA — que surgió después del rechazo o no estaba disponible antes. NO repitas evidencia que ya presentaste.':
-             lang==='fr'?'Votre demande d\'asile a été rejetée par la CISR. En vertu de l\'art.113(a), vous ne pouvez soumettre QUE de nouvelles preuves — apparues après le rejet ou non disponibles avant. Ne répétez pas les preuves déjà soumises.':
-             'Your refugee claim was rejected by the IRB. Under IRPA s.113(a), you can ONLY submit NEW evidence — that arose after the rejection or was not available before. Do NOT repeat evidence you already presented.'}
-        </div>
-      )}
-      <div style={{background:'var(--navyl)',borderRadius:12,padding:'14px 18px',marginBottom:18,fontSize:13,color:'var(--navy)',lineHeight:1.65}}>
-        Answer all 5 questions below in as much detail as possible, in any language. The AI will write a complete professional letter in English for you to review and submit. <strong>Be specific and personal</strong> — this is the most important document in your application.
-      </div>
-      <div style={{display:'flex',gap:6,marginBottom:18,flexWrap:'wrap'}}>
-        {RQS.map((q,i)=>(
-          <button key={q.id} onClick={()=>setActiveQ(i)}
-            style={{padding:'6px 14px',borderRadius:20,border:`1.5px solid ${activeQ===i?'var(--navy)':riskLetter[q.id]?.trim()?'var(--teal)':'var(--brd)'}`,background:activeQ===i?'var(--navy)':riskLetter[q.id]?.trim()?'var(--tealp)':'var(--paper)',color:activeQ===i?'#fff':riskLetter[q.id]?.trim()?'var(--teal)':'var(--ink2)',fontFamily:'Inter,sans-serif',fontSize:13,fontWeight:600,cursor:'pointer',outline:'none'}}>
-            Q{i+1}{riskLetter[q.id]?.trim()?' ✓':''}
-          </button>
-        ))}
-      </div>
-      {RQS.map((q,i)=>i===activeQ&&(
-        <div key={q.id} className="sl">
-          <div style={{fontWeight:700,fontSize:13,color:'var(--navy)',marginBottom:6,textTransform:'uppercase',letterSpacing:'1px'}}>Question {i+1} of 5</div>
-          <p style={{fontSize:15,color:'var(--ink)',marginBottom:8,lineHeight:1.55,fontStyle:'italic',fontFamily:'Playfair Display,serif'}}>"{T(q)}"</p>
-          <div style={{background:'var(--amberp)',borderRadius:8,padding:'10px 14px',marginBottom:12,fontSize:12.5,color:'var(--amber)',lineHeight:1.6}}>
-            💡 {T(q.hint)}
-          </div>
-          <textarea value={riskLetter[q.id]||''} onChange={e=>onChange(q.id,e.target.value)}
-            rows={6} placeholder="Write in any language — be as detailed and specific as possible..."
-            style={{width:'100%',border:'2px solid var(--brd)',borderRadius:10,padding:'12px 14px',fontSize:14,color:'var(--ink)',lineHeight:1.65,resize:'vertical',background:'var(--paper)',outline:'none',transition:'border-color .2s',fontFamily:'Inter,sans-serif'}}
-            onFocus={e=>e.target.style.borderColor='var(--navy)'} onBlur={e=>e.target.style.borderColor='var(--brd)'}/>
-          <div style={{display:'flex',justifyContent:'space-between',marginTop:12,gap:10}}>
-            {i>0?<Btn onClick={()=>setActiveQ(i-1)} variant="secondary" style={{padding:'9px 16px'}}>← Prev</Btn>:<div/>}
-            {i<4
-              ?<Btn onClick={()=>setActiveQ(i+1)} style={{padding:'9px 16px'}}>Next →</Btn>
-              :<Btn onClick={generate} disabled={generating||answered<3} variant={generating||answered<3?'secondary':'primary'} style={{padding:'9px 18px'}}>
-                {generating?'Generating…':'✨ Generate letter'}
-              </Btn>
-            }
-          </div>
-          {i===4&&answered<3&&<p style={{color:'var(--red)',fontSize:12,marginTop:8}}>Answer at least 3 questions before generating.</p>}
-        </div>
-      ))}
-    </div>
-  );
-}
-
-// ── IMM 5476 ──────────────────────────────────────────────────────────────────
-// Field map: our data keys → official PDF AcroForm field names
-const PDF_FIELD_MAP = {
-  appLast:    "IMM_5476[0].Page1[0].SectionA[0].familyName[0]",
-  appFirst:   "IMM_5476[0].Page1[0].SectionA[0].givenName[0]",
-  appDOB:     "IMM_5476[0].Page1[0].SectionA[0].DOB[0]",
-  appEmail:   "IMM_5476[0].Page1[0].SectionA[0].office[0]",
-  appPhone:   "IMM_5476[0].Page1[0].SectionA[0].office[1]",
-  appType:    "IMM_5476[0].Page1[0].SectionA[0].application[0]",
-  appUCI:     "IMM_5476[0].Page1[0].SectionA[0].UCI[0]",
-  repLast:    "IMM_5476[0].Page1[0].SectionB[0].familyName[0]",
-  repFirst:   "IMM_5476[0].Page1[0].SectionB[0].givenName[0]",
-  repMember:  "IMM_5476[0].Page1[0].SectionB[0].question6[0].questionI[0].membership[0]",
-  repOrg:     "IMM_5476[0].Page1[0].SectionB[0].question7[0].organization[0]",
-  repAddress: "IMM_5476[0].Page1[0].SectionB[0].question7[0].streetName[0]",
-  repCity:    "IMM_5476[0].Page1[0].SectionB[0].question7[0].city[0]",
-  repProvince:"IMM_5476[0].Page1[0].SectionB[0].question7[0].province[0]",
-  repCountry: "IMM_5476[0].Page1[0].SectionB[0].question7[0].country[0]",
-  repPostal:  "IMM_5476[0].Page1[0].SectionB[0].question7[0].postalcode[0]",
-  repPhone:   "IMM_5476[0].Page1[0].SectionB[0].question7[0].phoneNumber[0]",
-  repEmail:   "IMM_5476[0].Page1[0].SectionB[0].question7[0].email[0]",
-};
-
-function splitRepName(fullName) {
-  if(!fullName) return {last:"", first:""};
-  const parts = fullName.trim().split(" ");
-  return {last: parts[parts.length-1]||"", first: parts.slice(0,-1).join(" ")||parts[0]||""};
-}
-
-function IMM5476({lang, profile, data, onChange}) {
-  const [generating, setGenerating] = useState(false);
-  const [status, setStatus] = useState(null); // null | "ok" | "error"
-
-  const fields = [
-    {id:"appLast",  label:{en:"Applicant — Last name (family name)", es:"Solicitante — Apellido", fr:"Demandeur — Nom de famille"}, dflt:profile?.lastName||""},
-    {id:"appFirst", label:{en:"Applicant — First / given name(s)",  es:"Solicitante — Nombre(s)", fr:"Demandeur — Prénom(s)"}, dflt:profile?.firstName||""},
-    {id:"appDOB",   label:{en:"Applicant — Date of birth (YYYY-MM-DD)", es:"Solicitante — Fecha de nacimiento (AAAA-MM-DD)", fr:"Demandeur — Date de naissance (AAAA-MM-JJ)"}, type:"date"},
-    {id:"appEmail", label:{en:"Applicant — Email address", es:"Solicitante — Correo electrónico", fr:"Demandeur — Adresse courriel"}, type:"email"},
-    {id:"appPhone", label:{en:"Applicant — Phone number (if no email)", es:"Solicitante — Teléfono (si no tienes email)", fr:"Demandeur — Téléphone (si pas de courriel)"}},
-    {id:"appUCI",   label:{en:"Applicant — UCI / Client ID", es:"Solicitante — UCI / ID de cliente", fr:"Demandeur — IUC / ID client"}, dflt:profile?.uci&&profile.uci!=="none"?profile.uci:"", ph:{en:"Leave blank if unknown", es:"Dejar en blanco si desconoces", fr:"Laisser vide si inconnu"}},
-    {id:"appType",  label:{en:"Type of application", es:"Tipo de solicitud", fr:"Type de demande"}, dflt:"Pre-Removal Risk Assessment (PRRA)"},
-    {id:"repType",  label:{en:"Representative type", es:"Tipo de representante", fr:"Type de représentant"}, type:"select",
-      opts:[
-        {v:"unpaid",  l:{en:"Unpaid — friend, family, or community member", es:"No pagado — amigo/a, familiar o miembro de la comunidad", fr:"Non rémunéré — ami(e), famille ou membre de la communauté"}},
-        {v:"cicc",    l:{en:"Paid — CICC member (immigration consultant)", es:"Pagado — miembro del CICC (consultor de inmigración)", fr:"Rémunéré — membre du CICC (consultant en immigration)"}},
-        {v:"lawyer",  l:{en:"Paid — Lawyer / Canadian law society member", es:"Pagado — abogado/a / miembro de colegio de abogados canadiense", fr:"Rémunéré — avocat(e) / membre d'un barreau canadien"}},
-        {v:"notary",  l:{en:"Paid — Quebec notary", es:"Pagado — notario de Quebec", fr:"Rémunéré — notaire du Québec"}},
-      ]
-    },
-    {id:"repName",    label:{en:"Representative — Full name", es:"Representante — Nombre completo", fr:"Représentant — Nom complet"}, ph:{en:"First name then Last name", es:"Nombre y después apellido", fr:"Prénom puis nom de famille"}},
-    {id:"repMember",  label:{en:"Representative — Membership ID (if paid)", es:"Representante — ID de membresía (si es pagado)", fr:"Représentant — ID d'adhésion (si rémunéré)"}, ph:{en:"Leave blank if unpaid", es:"Dejar en blanco si no pagado", fr:"Laisser vide si non rémunéré"}},
-    {id:"repOrg",     label:{en:"Representative — Firm or organization (optional)", es:"Representante — Firma u organización (opcional)", fr:"Représentant — Cabinet ou organisation (optionnel)"}},
-    {id:"repAddress", label:{en:"Representative — Street address", es:"Representante — Dirección (calle)", fr:"Représentant — Adresse (rue)"}},
-    {id:"repCity",    label:{en:"Representative — City", es:"Representante — Ciudad", fr:"Représentant — Ville"}},
-    {id:"repProvince",label:{en:"Representative — Province / State", es:"Representante — Provincia / Estado", fr:"Représentant — Province / État"}},
-    {id:"repCountry", label:{en:"Representative — Country", es:"Representante — País", fr:"Représentant — Pays"}, dflt:"Canada"},
-    {id:"repPostal",  label:{en:"Representative — Postal / ZIP code", es:"Representante — Código postal", fr:"Représentant — Code postal"}},
-    {id:"repPhone",   label:{en:"Representative — Phone number", es:"Representante — Teléfono", fr:"Représentant — Numéro de téléphone"}},
-    {id:"repEmail",   label:{en:"Representative — Email address", es:"Representante — Correo electrónico", fr:"Représentant — Adresse courriel"}, type:"email"},
-  ];
-
-  const L = lang==="es"?"es":lang==="fr"?"fr":"en";
-  const T = (obj) => (typeof obj === "string" ? obj : obj?.[L]||obj?.en||"");
-
-  const BASE = import.meta.env.BASE_URL || "/";
-
-  const generatePDF = async () => {
-    setGenerating(true);
-    setStatus(null);
-    try {
-      const { PDFDocument } = await import("pdf-lib");
-
-      // Fetch the official PDF from the public folder
-      const url = BASE.replace(/\/$/, "") + "/imm5476e.pdf";
-      const existingPdfBytes = await fetch(url).then(r => r.arrayBuffer());
-      const pdfDoc = await PDFDocument.load(existingPdfBytes, {ignoreEncryption: true});
-      const form = pdfDoc.getForm();
-
-      // Helper: fill a text field safely
-      const fill = (fieldName, value) => {
-        if(!value) return;
-        try {
-          const field = form.getTextField(fieldName);
-          field.setText(String(value));
-        } catch(e) {
-          // Field may not exist or may have a different type — skip silently
-        }
-      };
-
-      // Section A — Applicant
-      fill(PDF_FIELD_MAP.appLast,  data.appLast  || profile?.lastName  || "");
-      fill(PDF_FIELD_MAP.appFirst, data.appFirst || profile?.firstName || "");
-      fill(PDF_FIELD_MAP.appDOB,   data.appDOB   || "");
-      fill(PDF_FIELD_MAP.appEmail, data.appEmail || "");
-      fill(PDF_FIELD_MAP.appPhone, data.appPhone || "");
-      fill(PDF_FIELD_MAP.appType,  data.appType  || "Pre-Removal Risk Assessment (PRRA)");
-      fill(PDF_FIELD_MAP.appUCI,   data.appUCI   || (profile?.uci && profile.uci !== "none" ? profile.uci : ""));
-
-      // Section B — Representative
-      // Split rep full name into family + given
-      const repNames = splitRepName(data.repName || "");
-      fill(PDF_FIELD_MAP.repLast,     repNames.last);
-      fill(PDF_FIELD_MAP.repFirst,    repNames.first);
-      fill(PDF_FIELD_MAP.repMember,   data.repMember   || "");
-      fill(PDF_FIELD_MAP.repOrg,      data.repOrg      || "");
-      fill(PDF_FIELD_MAP.repAddress,  data.repAddress  || "");
-      fill(PDF_FIELD_MAP.repCity,     data.repCity     || "");
-      fill(PDF_FIELD_MAP.repProvince, data.repProvince || "");
-      fill(PDF_FIELD_MAP.repCountry,  data.repCountry  || "Canada");
-      fill(PDF_FIELD_MAP.repPostal,   data.repPostal   || "");
-      fill(PDF_FIELD_MAP.repPhone,    data.repPhone    || "");
-      fill(PDF_FIELD_MAP.repEmail,    data.repEmail    || "");
-
-      // Select "appointing a representative" radio
+  useEffect(()=>{
+    const int = setInterval(()=>setMsgIdx(i=>Math.min(i+1,msgs.length-1)),2200);
+    let cancelled = false;
+    (async()=>{
       try {
-        const radio = form.getRadioGroup("IMM_5476[0].Page1[0].RadioButtonList[0]");
-        radio.select("0"); // first option = appointing
-      } catch(e) {}
-
-      // Flatten is optional — keeping editable so user can fill signature fields
-      const pdfBytes = await pdfDoc.save();
-      const blob = new Blob([pdfBytes], {type: "application/pdf"});
-      const downloadUrl = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = downloadUrl;
-      a.download = "IMM_5476_Filled.pdf";
-      a.click();
-      URL.revokeObjectURL(downloadUrl);
-      setStatus("ok");
-    } catch(err) {
-      console.error("PDF generation error:", err);
-      setStatus("error");
-    }
-    setGenerating(false);
-  };
-
-  const labels = {
-    intro:{
-      en:"Fill in the details below, then click the button to download the official IMM 5476 PDF pre-filled with your data. Both you and your representative must sign it by hand before submitting.",
-      es:"Completa los campos y haz clic para descargar el formulario oficial IMM 5476 pre-llenado con tus datos. Tanto tú como tu representante deben firmarlo a mano antes de enviarlo.",
-      fr:"Remplissez les champs ci-dessous puis cliquez pour télécharger le formulaire officiel IMM 5476 pré-rempli avec vos données. Vous et votre représentant devez le signer à la main avant de le soumettre.",
-    },
-    download:{en:"⬇️ Download pre-filled IMM 5476 (official PDF)", es:"⬇️ Descargar IMM 5476 pre-llenado (PDF oficial)", fr:"⬇️ Télécharger IMM 5476 pré-rempli (PDF officiel)"},
-    generating:{en:"Generating PDF...", es:"Generando PDF...", fr:"Génération du PDF..."},
-    ok:{en:"✅ PDF downloaded — sign by hand and include with your application.", es:"✅ PDF descargado — fírmalo a mano e inclúyelo con tu solicitud.", fr:"✅ PDF téléchargé — signez à la main et incluez-le avec votre demande."},
-    err:{en:"❌ Could not generate PDF. Try again or use the browser print version below.", es:"❌ No se pudo generar el PDF. Intenta de nuevo o usa la versión impresa.", fr:"❌ Impossible de générer le PDF. Réessayez ou utilisez la version imprimée."},
-    sign:{en:"After downloading: both you and your representative must sign the form by hand. Leave signature and date fields blank — sign after printing.", es:"Después de descargar: tú y tu representante deben firmar el formulario a mano. Deja los campos de firma en blanco — firma después de imprimir.", fr:"Après le téléchargement: vous et votre représentant devez signer le formulaire à la main. Laissez les champs de signature vides — signez après impression."},
-  };
+        const docTexts = await generateDocuments(answers, lang);
+        const answersWithLang = {...answers, _lang:lang};
+        const [imm5476Blob, imm5508Blob] = await Promise.all([
+          answers.hasRep==="yes" ? fillIMM5476(answers) : Promise.resolve(null),
+          fillIMM5508(answersWithLang, docTexts),
+        ]);
+        if(!cancelled) onDone({docTexts, imm5476Blob, imm5508Blob});
+      } catch(err) {
+        if(!cancelled) onDone({docTexts:{letter:"Error generating documents. Please try again.",incidents:"",protection:"",docSupport:[]}, imm5476Blob:null, imm5508Blob:null});
+      }
+    })();
+    return()=>{cancelled=true;clearInterval(int);};
+  },[]);
 
   return (
-    <div>
-      <div style={{background:"var(--navyl)",borderRadius:12,padding:"14px 18px",marginBottom:18,fontSize:13,color:"var(--navy)",lineHeight:1.65}}>
-        <strong>IMM 5476 — {T({en:"Use of a Representative",es:"Uso de un Representante",fr:"Utilisation d'un représentant"})}</strong><br/>
-        <span style={{opacity:.85}}>{T(labels.intro)}</span>
-      </div>
-
-      <div style={{display:"flex",flexDirection:"column",gap:13,marginBottom:22}}>
-        {fields.map(f=>(
-          <div key={f.id}>
-            <label style={{display:"block",fontSize:11.5,fontWeight:700,color:"var(--ink2)",marginBottom:5,letterSpacing:"0.5px"}}>{T(f.label)}</label>
-            {f.type==="select"
-              ?<select value={data[f.id]||"unpaid"} onChange={e=>onChange(f.id,e.target.value)}
-                  style={{width:"100%",border:"2px solid var(--brd)",borderRadius:8,padding:"10px 12px",fontSize:14,color:"var(--ink)",background:"var(--paper)",outline:"none",fontFamily:"Inter,sans-serif"}}
-                  onFocus={e=>e.target.style.borderColor="var(--navy)"} onBlur={e=>e.target.style.borderColor="var(--brd)"}>
-                  {f.opts.map(o=><option key={o.v} value={o.v}>{T(o.l)}</option>)}
-                </select>
-              :<input
-                  type={f.type||"text"}
-                  value={data[f.id]||(f.dflt||"")}
-                  onChange={e=>onChange(f.id,e.target.value)}
-                  placeholder={T(f.ph)||""}
-                  style={{width:"100%",border:"2px solid var(--brd)",borderRadius:8,padding:"10px 12px",fontSize:14,color:"#1c2533",background:"#ffffff",outline:"none",transition:"border-color .2s",WebkitAppearance:"none",appearance:"none",boxSizing:"border-box"}}
-                  onFocus={e=>e.target.style.borderColor="var(--navy)"} onBlur={e=>e.target.style.borderColor="var(--brd)"}/>
-            }
-          </div>
-        ))}
-      </div>
-
-      <Btn
-        onClick={generatePDF}
-        disabled={generating}
-        style={{width:"100%",padding:"15px",fontSize:15,marginBottom:10}}>
-        {generating ? T(labels.generating) : T(labels.download)}
-      </Btn>
-
-      {status==="ok"&&(
-        <div style={{background:"var(--tealp)",borderRadius:10,padding:"12px 16px",fontSize:13,color:"var(--teal)",fontWeight:600,marginBottom:10}}>
-          {T(labels.ok)}
-        </div>
-      )}
-      {status==="error"&&(
-        <div style={{background:"var(--redp)",borderRadius:10,padding:"12px 16px",fontSize:13,color:"var(--red)",fontWeight:600,marginBottom:10}}>
-          {T(labels.err)}
-        </div>
-      )}
-
-      <div style={{background:"var(--amberp)",borderRadius:10,padding:"12px 16px",fontSize:12.5,color:"var(--amber)",lineHeight:1.65}}>
-        ✏️ {T(labels.sign)}
+    <div style={{minHeight:"100vh",background:"linear-gradient(155deg,#0d2137 0%,#1e3a5c 50%,#1a5c52 100%)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"32px 20px"}}>
+      <style>{CSS}</style>
+      <div style={{width:60,height:60,border:"4px solid rgba(255,255,255,.2)",borderTop:"4px solid #fff",borderRadius:"50%",animation:"spin 1.2s linear infinite",marginBottom:28}}/>
+      <h2 style={{fontFamily:"Georgia,serif",color:"#fff",fontSize:"clamp(20px,4vw,28px)",textAlign:"center",marginBottom:10}}>{T(UI.generating,lang)}</h2>
+      <p style={{color:"rgba(255,255,255,.65)",fontSize:15,textAlign:"center",transition:"all .4s"}}>{msgs[msgIdx]}</p>
+      <div style={{display:"flex",gap:6,marginTop:24}}>
+        {msgs.map((_,i)=><div key={i} style={{width:7,height:7,borderRadius:"50%",background:i<=msgIdx?"#fff":"rgba(255,255,255,.25)",transition:"background .3s"}}/>)}
       </div>
     </div>
   );
 }
 
-// ── SUBMISSION GUIDE ──────────────────────────────────────────────────────────
-function SubmissionGuide() {
-  const [method,setMethod] = useState(null);
-  const guides = {
-    online:[
-      {n:1,t:'Sign up for Canada Post Connect',d:'Go to the IRCC Connect signup form at canada.ca. Provide your full name (as on passport), UCI/Client ID, and email. Allow 1 business day to receive your account. Sign up at least 5 days before your deadline.',link:'https://forms-formulaires.alpha.canada.ca/en/id/cm7aryep1004qyo6ag3bfarzc'},
-      {n:2,t:'Convert everything to PDF',d:'All documents must be in PDF format. Each file must be under 25MB. If a file is larger, split it into parts (e.g., Evidence_Part1.pdf, Evidence_Part2.pdf).'},
-      {n:3,t:'Send via your Connect account',d:'Log in and attach your documents. The timestamp in Connect is your official submission time — this is what matters for your deadline. Do NOT submit the same documents again by mail.'},
-      {n:4,t:'Monitor your Connect inbox daily',d:'Check your Connect inbox AND your email spam folder regularly. IRCC will contact you through Connect for hearings, additional requests, or their decision.'},
-    ],
-    mail:[
-      {n:1,t:'Use a 9" × 12" (23 × 30.5 cm) envelope',d:'Print your full name and address clearly in the top left corner. Do NOT use staples, binders, plastic sleeves, or folders inside. Paper clips or elastic bands are OK.'},
-      {n:2,t:'Address the envelope correctly',d:'Send to: IRCC — Humanitarian Migration — Vancouver\n#300 - 800 Burrard Street\nVancouver, BC  V6Z 0B6'},
-      {n:3,t:'Use tracked mail / courier',d:'Use Canada Post with tracking, or a courier service. The envelope needs extra postage — have the post office weigh it. Keep your tracking receipt as proof of mailing.'},
-      {n:4,t:'Mail well before your deadline',d:'Mail delivery time counts against your deadline. If you have 5 days left, mail TODAY or use a courier. IRCC must receive your application before the deadline — not just postmarked.'},
-    ],
-  };
-  return (
-    <div>
-      <div style={{background:'var(--amberp)',borderRadius:12,padding:'13px 17px',marginBottom:18,fontSize:13,color:'var(--amber)',lineHeight:1.65,fontWeight:600}}>
-        ⚠️ IRCC must RECEIVE your application before your deadline — not just send it. Online is faster and timestamps immediately.
-      </div>
-      <div style={{display:'flex',gap:10,marginBottom:20}}>
-        {[{k:'online',e:'💻',l:'Online via Connect (Recommended)'},{k:'mail',e:'📮',l:'By Mail'}].map(({k,e,l})=>(
-          <button key={k} onClick={()=>setMethod(k)}
-            style={{flex:1,padding:'13px',borderRadius:11,border:`2px solid ${method===k?'var(--navy)':'var(--brd)'}`,background:method===k?'var(--navy)':'var(--paper)',color:method===k?'#fff':'var(--ink2)',fontFamily:'Inter,sans-serif',fontWeight:600,fontSize:13.5,cursor:'pointer',outline:'none'}}>
-            {e} {l}
-          </button>
-        ))}
-      </div>
-      {method&&(guides[method]||[]).map((s,i)=>(
-        <div key={i} className="fi" style={{background:'var(--paper)',border:'1.5px solid var(--brd)',borderRadius:12,padding:'15px',marginBottom:10,display:'flex',gap:13}}>
-          <div style={{width:30,height:30,borderRadius:'50%',background:'var(--navy)',color:'#fff',display:'flex',alignItems:'center',justifyContent:'center',fontWeight:700,fontSize:14,flexShrink:0}}>{s.n}</div>
-          <div>
-            <div style={{fontWeight:600,color:'var(--ink)',marginBottom:4,fontSize:14}}>{s.t}</div>
-            <div style={{fontSize:13,color:'var(--ink2)',lineHeight:1.65,whiteSpace:'pre-line'}}>{s.d}</div>
-            {s.link&&<a href={s.link} target="_blank" rel="noreferrer" style={{display:'inline-block',marginTop:8,color:'var(--navy)',fontSize:13,fontWeight:600}}>Open Connect signup form →</a>}
-          </div>
-        </div>
-      ))}
-      {!method&&<div style={{textAlign:'center',color:'var(--ink3)',padding:'40px 0',fontSize:14}}>Select a submission method above</div>}
-    </div>
-  );
-}
-
-// ── HEARING GUIDE ─────────────────────────────────────────────────────────────
-function HearingGuide() {
-  const steps = [
-    {e:'📬',t:'Receive your hearing notification',d:'You\'ll get a letter via Connect or mail with the date, time, and issues to be addressed. Read it carefully and note the deadline to request an interpreter or observers.'},
-    {e:'💻',t:'Download and test Microsoft Teams',d:'All hearings are virtual via Microsoft Teams. Download the app and test your camera, microphone, and internet connection BEFORE the hearing day. Join a test meeting if possible.'},
-    {e:'🌐',t:'Request an interpreter if needed',d:'If you need an interpreter, fill in the interpreter request form included with your hearing notification and submit it promptly. The officer MUST arrange an interpreter for you — this is your right.'},
-    {e:'👤',t:'Confirm your representative',d:'Your representative has the right to attend your hearing. Observers (family, support person) may also be allowed — request them as instructed in your notification letter.'},
-    {e:'⏰',t:'Join 15 minutes early',d:'Connect to the Teams meeting at least 15 minutes before the start time. If you join too early and get removed from the lobby after 15 min, reconnect using the same link from your invitation email.'},
-    {e:'🎙️',t:'During the hearing',d:'Speak clearly and directly into the microphone. Say "Yes" or "No" instead of nodding. Mute your mic when not speaking. Give the interpreter time to translate fully. Take notes.'},
-    {e:'🔴',t:'CRITICAL — Do not miss your hearing',d:'Missing your FIRST hearing: IRCC reschedules once. Missing your SECOND hearing: your application is declared abandoned and you WILL be deported. If something prevents you from attending, contact IRCC IMMEDIATELY via Connect or by phone.'},
+// ── PAYWALL SCREEN ────────────────────────────────────────────────────────────
+function PaywallScreen({lang, answers, onPay}) {
+  const L = lang;
+  const n = daysLeft(answers.deadline);
+  const docs = [
+    {icon:"📄",name:T(UI.doc1,L),desc:{en:"Your personalized risk submission letter, professionally written in English",es:"Tu carta de argumentación de riesgos, escrita profesionalmente en inglés",fr:"Votre lettre d'observations sur les risques, rédigée professionnellement"}},
+    ...(answers.hasRep==="yes"?[{icon:"📋",name:T(UI.doc2,L),desc:{en:"Official IMM 5476 form pre-filled with your and your representative's information",es:"Formulario IMM 5476 oficial pre-llenado con tu información y la de tu representante",fr:"Formulaire IMM 5476 officiel pré-rempli avec vos informations et celles de votre représentant"}}]:[]),
+    {icon:"📝",name:T(UI.doc3,L),desc:{en:"Official IMM 5508 form filled with all your information — ready to sign and submit",es:"Formulario IMM 5508 oficial llenado con toda tu información — listo para firmar y enviar",fr:"Formulaire IMM 5508 officiel rempli avec toutes vos informations — prêt à signer et soumettre"}},
   ];
   return (
-    <div>
-      <div style={{background:'var(--navyl)',borderRadius:12,padding:'13px 17px',marginBottom:16,fontSize:13,color:'var(--navy)',lineHeight:1.65}}>
-        Not all PRRA applications require a hearing. You only get one if an officer needs to address a credibility issue. If you receive a hearing notification letter, follow these steps carefully.
-      </div>
-      {steps.map((s,i)=>(
-        <div key={i} style={{background:s.e==='🔴'?'var(--redp)':'var(--paper)',border:`1.5px solid ${s.e==='🔴'?'#fca5a5':'var(--brd)'}`,borderRadius:12,padding:'15px',marginBottom:10,display:'flex',gap:13}}>
-          <span style={{fontSize:22,flexShrink:0,width:28,textAlign:'center'}}>{s.e}</span>
-          <div>
-            <div style={{fontWeight:700,fontSize:14,color:s.e==='🔴'?'var(--red)':'var(--ink)',marginBottom:4}}>{s.t}</div>
-            <div style={{fontSize:13,color:s.e==='🔴'?'var(--red)':'var(--ink2)',lineHeight:1.65,opacity:s.e==='🔴'?.9:1}}>{s.d}</div>
-          </div>
+    <div style={{minHeight:"100vh",background:"var(--bg)",padding:"0 0 48px"}}>
+      <style>{CSS}</style>
+      <div style={{background:"linear-gradient(135deg,var(--navy2),var(--navy))",padding:"28px 20px 32px"}}>
+        <div style={{maxWidth:560,margin:"0 auto",textAlign:"center"}}>
+          <div style={{fontSize:46,marginBottom:10}}>✅</div>
+          <h1 style={{fontFamily:"Georgia,serif",color:"#fff",fontSize:"clamp(22px,4vw,28px)",marginBottom:8}}>{T(UI.payTitle,L)}</h1>
+          <p style={{color:"rgba(255,255,255,.7)",fontSize:14,lineHeight:1.6}}>{T(UI.paySub,L)}</p>
+          {n!==null&&<div style={{marginTop:12,background:"rgba(255,255,255,.15)",borderRadius:10,padding:"9px 16px",display:"inline-block",color:"#fff",fontSize:13,fontWeight:600}}>{Math.max(0,n)} {T(UI.daysLeft,L)} · {fmtDate(answers.deadline)}</div>}
         </div>
-      ))}
-    </div>
-  );
-}
-
-// ── CHAT ──────────────────────────────────────────────────────────────────────
-function Chat({lang, profile}) {
-  const welcome = {en:'Hello! I\'m your PRRA guide. Ask me anything about your application, documents, deadlines, or what to expect next.',es:'¡Hola! Soy tu guía de PRRA. Pregúntame lo que necesites sobre tu solicitud, documentos, plazos o qué esperar.',fr:'Bonjour! Je suis votre guide PRRA. Posez-moi toute question sur votre demande, vos documents, vos délais ou ce qui vous attend.'};
-  const quick = {en:['What is "new evidence"?','Can I work while waiting?','What if I miss the deadline?','Do I need a representative?','What happens if PRRA is rejected?'],es:['¿Qué es "evidencia nueva"?','¿Puedo trabajar mientras espero?','¿Qué pasa si pierdo el plazo?','¿Necesito un representante?','¿Qué pasa si rechazan mi PRRA?'],fr:['Qu\'est-ce qu\'une "nouvelle preuve"?','Puis-je travailler en attendant?','Que se passe-t-il si je rate la date limite?','Ai-je besoin d\'un représentant?','Que se passe-t-il si la PRRA est rejetée?']};
-  const [msgs,setMsgs] = useState([{role:'assistant',content:welcome[lang]||welcome.en}]);
-  const [inp,setInp] = useState('');
-  const [loading,setLoading] = useState(false);
-  const endRef = useRef(null);
-  useEffect(()=>{endRef.current?.scrollIntoView({behavior:'smooth'});},[msgs]);
-  const send = async(msg) => {
-    if(!msg.trim()||loading) return;
-    const nm=[...msgs,{role:'user',content:msg}];
-    setMsgs(nm);setInp('');setLoading(true);
-    try {const t=await callAPI(nm,buildSys(lang,profile));setMsgs([...nm,{role:'assistant',content:t}]);}
-    catch {setMsgs([...nm,{role:'assistant',content:'Connection error. Please try again.'}]);}
-    setLoading(false);
-  };
-  return (
-    <div>
-      <div style={{minHeight:200,maxHeight:420,overflowY:'auto',display:'flex',flexDirection:'column',gap:10,paddingBottom:10}}>
-        {msgs.map((m,i)=>(
-          <div key={i} style={{maxWidth:'86%',padding:'11px 14px',fontSize:14,lineHeight:1.7,whiteSpace:'pre-wrap',
-            borderRadius:m.role==='user'?'12px 4px 12px 12px':'4px 12px 12px 12px',
-            background:m.role==='user'?'var(--navy)':'var(--navyl)',
-            color:m.role==='user'?'#fff':'var(--ink)',
-            alignSelf:m.role==='user'?'flex-end':'flex-start'}}>
-            {m.content}
-          </div>
-        ))}
-        {loading&&<div style={{maxWidth:'86%',padding:'11px 14px',borderRadius:'4px 12px 12px 12px',background:'var(--navyl)',color:'var(--ink3)',fontSize:14,alignSelf:'flex-start'}}>Thinking…</div>}
-        <div ref={endRef}/>
       </div>
-      <div style={{marginBottom:10}}>
-        <div style={{fontSize:11,color:'var(--ink3)',fontWeight:700,textTransform:'uppercase',letterSpacing:'1px',marginBottom:6}}>Quick questions</div>
-        <div style={{display:'flex',flexWrap:'wrap',gap:5}}>
-          {(quick[lang]||quick.en).map(q=>(
-            <button key={q} onClick={()=>send(q)} style={{background:'var(--paper2)',border:'1px solid var(--brd)',borderRadius:16,padding:'5px 12px',fontSize:12,cursor:'pointer',color:'var(--ink2)',fontFamily:'Inter,sans-serif',fontWeight:500,transition:'all .15s',outline:'none'}}
-              onMouseEnter={e=>{e.target.style.borderColor='var(--navy)';e.target.style.color='var(--navy)';}}
-              onMouseLeave={e=>{e.target.style.borderColor='var(--brd)';e.target.style.color='var(--ink2)';}}>
-              {q}
-            </button>
+      <div style={{maxWidth:560,margin:"0 auto",padding:"22px 16px"}}>
+        <div style={{display:"flex",flexDirection:"column",gap:10,marginBottom:22}}>
+          {docs.map((doc,i)=>(
+            <div key={i} style={{background:"var(--paper)",borderRadius:14,padding:"16px",border:"1px solid var(--brd)",display:"flex",gap:12,alignItems:"flex-start",position:"relative",overflow:"hidden"}}>
+              <div style={{position:"absolute",top:0,left:0,right:0,bottom:0,backdropFilter:"blur(5px)",background:"rgba(248,245,240,.8)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:2}}>
+                <span style={{fontSize:26}}>🔒</span>
+              </div>
+              <span style={{fontSize:26,flexShrink:0}}>{doc.icon}</span>
+              <div><div style={{fontWeight:700,fontSize:14,color:"var(--ink)",marginBottom:3}}>{doc.name}</div>
+              <div style={{fontSize:12,color:"var(--ink2)",lineHeight:1.5}}>{T(doc.desc,L)}</div></div>
+            </div>
           ))}
         </div>
-      </div>
-      <div style={{display:'flex',gap:8}}>
-        <input value={inp} onChange={e=>setInp(e.target.value)} onKeyDown={e=>e.key==='Enter'&&!e.shiftKey&&send(inp)}
-          placeholder="Ask anything about your PRRA…"
-          style={{flex:1,border:'2px solid var(--brd)',borderRadius:9,padding:'10px 13px',fontSize:14,color:'var(--ink)',background:'var(--paper)',outline:'none',transition:'border-color .2s',fontFamily:'Inter,sans-serif'}}
-          onFocus={e=>e.target.style.borderColor='var(--navy)'} onBlur={e=>e.target.style.borderColor='var(--brd)'}/>
-        <Btn onClick={()=>send(inp)} disabled={!inp.trim()||loading} style={{padding:'10px 18px'}}>Send</Btn>
+        <Btn onClick={onPay} full style={{fontSize:17,padding:"16px",marginBottom:10}}>{T(UI.payBtn,L)}</Btn>
+        <p style={{fontSize:12,color:"var(--ink3)",textAlign:"center",lineHeight:1.6}}>
+          {L==="es"?"Pago seguro. Descarga inmediata. Los documentos son solo para tu uso.":L==="fr"?"Paiement sécurisé. Téléchargement immédiat. Les documents sont uniquement pour votre usage.":"Secure payment. Immediate download. Documents are for your use only."}
+        </p>
       </div>
     </div>
   );
 }
 
-// ── DASHBOARD ─────────────────────────────────────────────────────────────────
+// ── SUCCESS SCREEN ────────────────────────────────────────────────────────────
+function SuccessScreen({lang, answers, documents, onRestart}) {
+  const L = lang;
+  const [dl, setDl] = useState(null);
 
-// ── IMM 5508 GUIDE ─────────────────────────────────────────────────────────────
-const IMM5508_STEPS = [
-  {
-    id:"cover",icon:"📋",
-    en:{
-      title:"Cover page — Form identification",
-      summary:"The cover page identifies the form and is pre-printed. You do not fill anything here.",
-      fields:[],
-      tips:["Check that the form number on your copy says IMM 5508. If you were given a different form, return to your CBSA officer.","Do not staple or fold pages — use a binder clip or rubber band if needed."]
-    },
-    es:{
-      title:"Portada — Identificación del formulario",
-      summary:"La portada identifica el formulario y viene pre-impresa. No debes escribir nada aquí.",
-      fields:[],
-      tips:["Verifica que el número del formulario en tu copia diga IMM 5508. Si te dieron otro formulario, regresa con tu oficial de la CBSA.","No engrapar ni doblar páginas."]
-    },
-    fr:{
-      title:"Page couverture — Identification du formulaire",
-      summary:"La page couverture identifie le formulaire et est pré-imprimée. Vous ne remplissez rien ici.",
-      fields:[],
-      tips:["Vérifiez que le numéro du formulaire sur votre copie indique IMM 5508.","Ne pas agrafer ni plier les pages."]
-    },
-  },
-  {
-    id:"sectionA",icon:"🪪",
-    en:{
-      title:"Section A — Your personal information",
-      summary:"Basic identifying information about you. Fill in every field exactly as it appears on your passport or official ID.",
-      fields:[
-        {f:"Family name (surname)",h:"Your last name exactly as on your passport. If you use multiple surnames, include all of them."},
-        {f:"Given name(s)",h:"Your first name and middle name(s) if any. Do not abbreviate."},
-        {f:"Date of birth",h:"Format: DD/MM/YYYY. Use the date on your passport or birth certificate."},
-        {f:"Country of birth",h:"The country where you were born — not where you are from now."},
-        {f:"Country of citizenship",h:"Your current country of nationality (the country of your passport). If you have more than one, list all."},
-        {f:"UCI / Client ID number",h:"The number on any previous IRCC letter. Leave blank if you have never received one — it will be assigned to you later."},
-        {f:"Current address in Canada",h:"Your complete current mailing address in Canada. Include street number, street name, city, province, and postal code."},
-        {f:"Phone number",h:"A phone number where IRCC can reach you. Include the area code."},
-        {f:"Email address",h:"An email you check regularly. IRCC may send hearing notices and decisions here."},
-      ],
-      tips:["Use a black or dark blue pen. Print clearly in capital letters.","Do not use correction fluid (White-Out). If you make an error, cross it out with a single line and initial it.","Leave no field blank — write N/A if not applicable."]
-    },
-    es:{
-      title:"Sección A — Tu información personal",
-      summary:"Información básica de identificación. Llena cada campo exactamente como aparece en tu pasaporte o identificación oficial.",
-      fields:[
-        {f:"Apellido(s)",h:"Tu apellido exactamente como aparece en tu pasaporte. Si tienes varios apellidos, inclúyelos todos."},
-        {f:"Nombre(s)",h:"Tu nombre y segundo nombre si tienes. No uses abreviaturas."},
-        {f:"Fecha de nacimiento",h:"Formato: DD/MM/AAAA. Usa la fecha de tu pasaporte o acta de nacimiento."},
-        {f:"País de nacimiento",h:"El país donde naciste, no donde vives ahora."},
-        {f:"País de ciudadanía",h:"Tu país de nacionalidad actual (el país de tu pasaporte). Si tienes más de uno, listarlos todos."},
-        {f:"Número UCI / ID de cliente",h:"El número en cualquier carta previa de IRCC. Déjalo en blanco si nunca has recibido uno — te lo asignarán más tarde."},
-        {f:"Dirección actual en Canadá",h:"Tu dirección postal completa en Canadá. Incluye número de calle, nombre de calle, ciudad, provincia y código postal."},
-        {f:"Número de teléfono",h:"Un número donde IRCC pueda contactarte. Incluye el código de área."},
-        {f:"Correo electrónico",h:"Un correo que revises regularmente. IRCC puede enviarte avisos de audiencias y decisiones aquí."},
-      ],
-      tips:["Usa bolígrafo negro o azul oscuro. Imprime claramente en letras mayúsculas.","No uses corrector líquido (White-Out). Si cometes un error, táchalo con una sola línea y pon tus iniciales.","No dejes ningún campo en blanco — escribe N/A si no aplica."]
-    },
-    fr:{
-      title:"Section A — Vos renseignements personnels",
-      summary:"Informations d'identification de base. Remplissez chaque champ exactement comme sur votre passeport ou pièce d'identité officielle.",
-      fields:[
-        {f:"Nom de famille",h:"Votre nom de famille tel qu'il figure sur votre passeport. Si vous avez plusieurs noms de famille, incluez-les tous."},
-        {f:"Prénom(s)",h:"Votre prénom et deuxième prénom le cas échéant. Ne pas abréger."},
-        {f:"Date de naissance",h:"Format : JJ/MM/AAAA. Utilisez la date figurant sur votre passeport ou acte de naissance."},
-        {f:"Pays de naissance",h:"Le pays où vous êtes né(e), pas où vous habitez actuellement."},
-        {f:"Pays de citoyenneté",h:"Votre pays de nationalité actuel (le pays de votre passeport). Si vous en avez plusieurs, listez-les tous."},
-        {f:"Numéro UCI / ID client",h:"Le numéro figurant sur toute lettre IRCC antérieure. Laissez vide si vous n'en avez jamais reçu."},
-        {f:"Adresse actuelle au Canada",h:"Votre adresse postale complète au Canada. Incluez le numéro de rue, le nom de rue, la ville, la province et le code postal."},
-        {f:"Numéro de téléphone",h:"Un numéro où l'IRCC peut vous joindre. Inclure l'indicatif régional."},
-        {f:"Adresse courriel",h:"Un courriel que vous consultez régulièrement. L'IRCC peut y envoyer des avis d'audience et des décisions."},
-      ],
-      tips:["Utilisez un stylo noir ou bleu foncé. Imprimez clairement en lettres majuscules.","Ne pas utiliser de correcteur liquide. En cas d'erreur, barrez d'un trait et paraphez.","Ne laissez aucun champ vide — écrivez S/O si non applicable."]
-    },
-  },
-  {
-    id:"sectionB",icon:"⚠️",
-    en:{
-      title:"Section B — Basis of your PRRA claim",
-      summary:"This is where you identify the legal grounds for your claim. What you check here must match what you write in your separate written submission letter.",
-      fields:[
-        {f:"Section 96 — Convention refugee",h:"Check this box if you fear persecution based on: race, religion, nationality, membership in a particular social group, or political opinion. Only available for FULL PRRA (not restricted)."},
-        {f:"Section 97(1)(a) — Danger of torture",h:"Check this box if you would personally be subjected to torture as defined in the Convention Against Torture. Requires that a state actor is involved or acquiesces."},
-        {f:"Section 97(1)(b) — Risk to life / cruel treatment",h:"Check this box if there is a risk to your life or risk of cruel and unusual treatment or punishment — if it exists everywhere in your country, is not faced by the general population, and is not from lawful sanctions."},
-      ],
-      tips:["You can check more than one box if multiple grounds apply to you.","If you have a RESTRICTED PRRA (serious criminality), do NOT check s.96. You may only check s.97(1)(a) or s.97(1)(b).","What you check here must be consistent with your written submissions. Contradictions will hurt your case."]
-    },
-    es:{
-      title:"Sección B — Base de tu solicitud PRRA",
-      summary:"Aquí identificas los fundamentos legales de tu solicitud. Lo que marques aquí debe coincidir con lo que escribas en tu carta de riesgos.",
-      fields:[
-        {f:"Sección 96 — Refugiado convencional",h:"Marca esta casilla si temes persecución por: raza, religión, nacionalidad, pertenencia a un grupo social particular, u opinión política. Solo disponible para PRRA COMPLETO (no restringido)."},
-        {f:"Sección 97(1)(a) — Peligro de tortura",h:"Marca esta casilla si serías sometido/a personalmente a tortura según la Convención contra la Tortura. Requiere que un actor estatal esté involucrado o lo permita."},
-        {f:"Sección 97(1)(b) — Riesgo de vida / trato cruel",h:"Marca esta casilla si hay riesgo para tu vida o riesgo de trato cruel e inusual — si existe en todo tu país, no lo enfrenta la población general, y no proviene de sanciones legales legítimas."},
-      ],
-      tips:["Puedes marcar más de una casilla si aplican múltiples fundamentos.","Si tienes PRRA RESTRINGIDO (criminalidad grave), NO marques la s.96. Solo puedes marcar s.97(1)(a) o s.97(1)(b).","Lo que marques aquí debe ser coherente con tu carta de riesgos."]
-    },
-    fr:{
-      title:"Section B — Fondement de votre demande PRRA",
-      summary:"C'est ici que vous identifiez les motifs juridiques de votre demande. Ce que vous cochez doit correspondre à ce que vous écrivez dans votre lettre de risques.",
-      fields:[
-        {f:"Article 96 — Réfugié au sens de la Convention",h:"Cochez cette case si vous craignez d'être persécuté(e) en raison de : race, religion, nationalité, appartenance à un groupe social particulier, ou opinion politique. Disponible uniquement pour PRRA COMPLET."},
-        {f:"Article 97(1)(a) — Danger de torture",h:"Cochez cette case si vous seriez personnellement soumis(e) à la torture au sens de la Convention contre la torture. Nécessite l'implication ou l'acquiescement d'un acteur étatique."},
-        {f:"Article 97(1)(b) — Risque pour la vie / traitement cruel",h:"Cochez cette case s'il y a un risque pour votre vie ou un risque de traitements ou peines cruels et inusités — s'il existe partout dans votre pays, n'est pas couru par la population en général, et ne découle pas de sanctions légales légitimes."},
-      ],
-      tips:["Vous pouvez cocher plus d'une case si plusieurs motifs s'appliquent.","Si vous avez un PRRA RESTREINT (criminalité grave), ne cochez PAS l'art.96.","Ce que vous cochez doit être cohérent avec vos observations écrites."]
-    },
-  },
-  {
-    id:"sectionC",icon:"✍️",
-    en:{
-      title:"Section C — Description of risk",
-      summary:"A brief written description of your risk — this is separate from your full written submission letter. Keep it clear and factual here; your detailed arguments go in the separate submission.",
-      fields:[
-        {f:"Description of risk",h:"Write a concise summary (3–5 sentences) of the risk you face if returned. Example: 'I am a journalist who reported on government corruption. After my last article, I received death threats from government-linked groups. Police refused to investigate. I believe I will be killed or imprisoned if I return.'"},
-      ],
-      tips:["This is a SUMMARY only — not your full argument. Your full case is made in your separate written submission letter.","Write in English or French. If you are not comfortable, write a brief summary and expand in your submission letter.","Be factual and specific. Avoid vague statements like 'my country is dangerous'.","This section must be consistent with your written submission. Do not contradict yourself."]
-    },
-    es:{
-      title:"Sección C — Descripción del riesgo",
-      summary:"Una breve descripción escrita de tu riesgo — esto es separado de tu carta de riesgos completa. Sé claro y factual aquí; tus argumentos detallados van en el escrito separado.",
-      fields:[
-        {f:"Descripción del riesgo",h:"Escribe un resumen conciso (3-5 oraciones) del riesgo que enfrentas si te deportan. Ejemplo: 'Soy periodista que reportó sobre corrupción gubernamental. Después de mi último artículo, recibí amenazas de muerte de grupos vinculados al gobierno. La policía se negó a investigar. Creo que seré asesinado/a o encarcelado/a si regreso.'"},
-      ],
-      tips:["Esto es solo un RESUMEN — no tu argumento completo. Tu caso completo va en tu carta de riesgos separada.","Escribe en inglés o francés. Si no te sientes cómodo/a, escribe un breve resumen y amplía en tu carta de riesgos.","Sé factual y específico/a. Evita declaraciones vagas como 'mi país es peligroso'.","Esta sección debe ser coherente con tu carta de riesgos."]
-    },
-    fr:{
-      title:"Section C — Description du risque",
-      summary:"Une brève description écrite de votre risque — distincte de votre lettre de risques complète. Soyez clair et factuel ici.",
-      fields:[
-        {f:"Description du risque",h:"Rédigez un résumé concis (3-5 phrases) du risque auquel vous faites face si vous êtes renvoyé(e). Exemple : 'Je suis journaliste et j'ai rapporté sur la corruption gouvernementale. Après mon dernier article, j'ai reçu des menaces de mort de groupes liés au gouvernement. La police a refusé d'enquêter.'"},
-      ],
-      tips:["Ceci est un RÉSUMÉ seulement — pas votre argument complet.","Écrivez en anglais ou en français.","Soyez factuel(le) et précis(e). Évitez les déclarations vagues comme 'mon pays est dangereux'.","Cette section doit être cohérente avec vos observations écrites."]
-    },
-  },
-  {
-    id:"sectionD",icon:"📎",
-    en:{
-      title:"Section D — List of documents attached",
-      summary:"You must list every document you are submitting with your application. Number them consecutively (Exhibit 1, Exhibit 2, etc.).",
-      fields:[
-        {f:"Document number",h:"Assign a number to each document: Exhibit 1, Exhibit 2, etc. Write this number on the document itself in the top right corner."},
-        {f:"Description of document",h:"Brief description: e.g. 'Exhibit 1 — Threatening letter received January 2024 (original + certified translation)'."},
-        {f:"Language",h:"Write the original language of the document. If it is not English or French, you must attach a certified translation."},
-      ],
-      tips:["Every document you list here must actually be attached. Do not list documents you do not have.","Documents not in English or French MUST be accompanied by a certified translation AND a signed translator declaration.","Mark each physical document clearly with its exhibit number before submitting.","Keep a complete copy of everything you submit for your own records."]
-    },
-    es:{
-      title:"Sección D — Lista de documentos adjuntos",
-      summary:"Debes listar cada documento que envías con tu solicitud. Numéralos consecutivamente (Anexo 1, Anexo 2, etc.).",
-      fields:[
-        {f:"Número de documento",h:"Asigna un número a cada documento: Anexo 1, Anexo 2, etc. Escribe este número en el documento mismo en la esquina superior derecha."},
-        {f:"Descripción del documento",h:"Descripción breve: ej. 'Anexo 1 — Carta amenazante recibida en enero 2024 (original + traducción certificada)'."},
-        {f:"Idioma",h:"Escribe el idioma original del documento. Si no está en inglés o francés, debes adjuntar una traducción certificada."},
-      ],
-      tips:["Cada documento que listes aquí debe estar adjunto. No listes documentos que no tienes.","Los documentos que no estén en inglés o francés DEBEN incluir traducción certificada Y declaración del traductor.","Marca cada documento físico claramente con su número de anexo antes de enviarlo.","Guarda una copia completa de todo lo que envíes para tus propios registros."]
-    },
-    fr:{
-      title:"Section D — Liste des documents joints",
-      summary:"Vous devez lister chaque document soumis avec votre demande. Numérotez-les consécutivement (Pièce 1, Pièce 2, etc.).",
-      fields:[
-        {f:"Numéro de document",h:"Attribuez un numéro à chaque document : Pièce 1, Pièce 2, etc. Inscrivez ce numéro sur le document lui-même dans le coin supérieur droit."},
-        {f:"Description du document",h:"Brève description : ex. 'Pièce 1 — Lettre de menace reçue en janvier 2024 (original + traduction certifiée)'."},
-        {f:"Langue",h:"Indiquez la langue originale du document. S'il n'est pas en anglais ou en français, vous devez joindre une traduction certifiée."},
-      ],
-      tips:["Chaque document listé doit être effectivement joint.","Les documents non rédigés en anglais ou en français DOIVENT être accompagnés d'une traduction certifiée ET d'une déclaration du traducteur.","Marquez clairement chaque document avec son numéro de pièce avant de soumettre.","Conservez une copie complète de tout ce que vous soumettez."]
-    },
-  },
-  {
-    id:"sectionE",icon:"✒️",
-    en:{
-      title:"Section E — Declaration and signature",
-      summary:"This is the most important section. Your signature certifies that everything in the application is true and complete. Read every word before signing.",
-      fields:[
-        {f:"Applicant signature",h:"Sign your full legal signature — the same one you use on your passport and official documents. Do NOT print your name here, write your actual signature."},
-        {f:"Date",h:"Write today's date in DD/MM/YYYY format. Do not pre-date or post-date."},
-        {f:"Name of interpreter (if used)",h:"If someone helped you understand and complete the form, write their full name here. They must also sign if they assisted you as an interpreter."},
-      ],
-      tips:["Do not sign until you have read and verified everything on the form.","If you cannot sign (due to disability), ask your CBSA officer about alternative options.","If a family member 18+ has their own copy of the form, each person must sign their own copy separately.","IMPORTANT: By signing, you declare under Canadian law that all information is true. Providing false information is a serious offence."]
-    },
-    es:{
-      title:"Sección E — Declaración y firma",
-      summary:"Esta es la sección más importante. Tu firma certifica que todo en la solicitud es verdadero y completo. Lee cada palabra antes de firmar.",
-      fields:[
-        {f:"Firma del solicitante",h:"Firma con tu firma legal completa — la misma que usas en tu pasaporte y documentos oficiales. NO imprimas tu nombre aquí, escribe tu firma real."},
-        {f:"Fecha",h:"Escribe la fecha de hoy en formato DD/MM/AAAA. No escribas una fecha anterior ni posterior."},
-        {f:"Nombre del intérprete (si se usó)",h:"Si alguien te ayudó a entender y completar el formulario, escribe su nombre completo aquí. Ellos también deben firmar si te asistieron como intérprete."},
-      ],
-      tips:["No firmes hasta haber leído y verificado todo en el formulario.","Si un familiar de 18+ tiene su propia copia del formulario, cada persona debe firmar su propia copia por separado.","IMPORTANTE: Al firmar, declaras bajo la ley canadiense que toda la información es verdadera. Proporcionar información falsa es un delito grave."]
-    },
-    fr:{
-      title:"Section E — Déclaration et signature",
-      summary:"C'est la section la plus importante. Votre signature certifie que tout dans la demande est vrai et complet. Lisez chaque mot avant de signer.",
-      fields:[
-        {f:"Signature du demandeur",h:"Signez de votre signature légale complète — la même que sur votre passeport et documents officiels. N'imprimez PAS votre nom ici, écrivez votre vraie signature."},
-        {f:"Date",h:"Inscrivez la date d'aujourd'hui au format JJ/MM/AAAA. Ne pas antidater ni postdater."},
-        {f:"Nom de l'interprète (si utilisé)",h:"Si quelqu'un vous a aidé à comprendre et remplir le formulaire, inscrivez son nom complet ici."},
-      ],
-      tips:["Ne signez pas avant d'avoir lu et vérifié tout le formulaire.","Si un membre de la famille de 18 ans ou plus a sa propre copie du formulaire, chaque personne doit signer sa propre copie séparément.","IMPORTANT : En signant, vous déclarez sous le régime de la loi canadienne que tous les renseignements sont vrais. Fournir de faux renseignements est une infraction grave."]
-    },
-  },
-];
-
-function IMM5508Guide({lang}) {
-  const [activeStep, setActiveStep] = useState(0);
-  const L = lang==="es"?"es":lang==="fr"?"fr":"en";
-  const step = IMM5508_STEPS[activeStep];
-  const data = step[L] || step.en;
-
-  const labels = {
-    en:{title:"How to fill out Form IMM 5508",sub:"Step-by-step guide — given to you by your CBSA officer",field:"Field",how:"How to fill it",tip:"Tips",next:"Next section →",prev:"← Previous",done:"All done!",of:"of"},
-    es:{title:"Cómo llenar el formulario IMM 5508",sub:"Guía paso a paso — te lo entrega tu oficial de la CBSA",field:"Campo",how:"Cómo llenarlo",tip:"Consejos",next:"Siguiente sección →",prev:"← Anterior",done:"¡Terminado!",of:"de"},
-    fr:{title:"Comment remplir le formulaire IMM 5508",sub:"Guide étape par étape — remis par votre agent CBSA",field:"Champ",how:"Comment le remplir",tip:"Conseils",next:"Section suivante →",prev:"← Précédent",done:"Terminé!",of:"sur"},
+  const downloadLetter = () => {
+    setDl("letter");
+    const blob = new Blob([documents.docTexts?.letter||""], {type:"text/plain"});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a"); a.href=url; a.download="PRRA_Submission_Letter.txt"; a.click();
+    URL.revokeObjectURL(url);
+    setTimeout(()=>setDl(null),1000);
   };
-  const lb = labels[L] || labels.en;
 
-  return (
-    <div>
-      <div style={{background:"var(--navyl)",borderRadius:12,padding:"14px 18px",marginBottom:18,fontSize:13,color:"var(--navy)",lineHeight:1.65}}>
-        <strong>{lb.title}</strong><br/>
-        <span style={{opacity:.8}}>{lb.sub}</span>
-      </div>
+  const downloadPDF = (blob, name) => {
+    if(!blob) return;
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a"); a.href=url; a.download=name; a.click();
+    URL.revokeObjectURL(url);
+  };
 
-      <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:18}}>
-        {IMM5508_STEPS.map((s,i)=>(
-          <button key={s.id} onClick={()=>setActiveStep(i)}
-            style={{padding:"6px 13px",borderRadius:20,border:"1.5px solid "+(i===activeStep?"var(--navy)":"var(--brd)"),background:i===activeStep?"var(--navy)":"var(--paper)",color:i===activeStep?"#fff":"var(--ink2)",fontFamily:"Inter,sans-serif",fontSize:12.5,fontWeight:600,cursor:"pointer",outline:"none",transition:"all .15s"}}>
-            {s.icon} {i===0?"Cover":i===5?"Sign":("Sec. "+(["A","B","C","D","E"][i-1]||i))}
-          </button>
-        ))}
-      </div>
-
-      <div className="fi" key={activeStep} style={{background:"var(--paper)",borderRadius:14,padding:"22px 20px",boxShadow:"0 2px 14px rgba(30,58,92,.08)",marginBottom:14}}>
-        <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:12}}>
-          <span style={{fontSize:26}}>{step.icon}</span>
-          <div>
-            <div style={{fontFamily:"Playfair Display,serif",fontSize:17,color:"var(--ink)",fontWeight:600}}>{data.title}</div>
-            <div style={{fontSize:11,color:"var(--ink3)",marginTop:2}}>{lb.of.charAt(0).toUpperCase()+lb.of.slice(1)} {activeStep+1} {lb.of} {IMM5508_STEPS.length}</div>
-          </div>
-        </div>
-
-        <p style={{fontSize:13.5,color:"var(--ink2)",lineHeight:1.7,marginBottom:data.fields.length?16:0,background:"var(--paper2)",borderRadius:9,padding:"12px 14px"}}>{data.summary}</p>
-
-        {data.fields.length>0&&(
-          <div style={{marginBottom:16}}>
-            <div style={{fontSize:11,fontWeight:700,color:"var(--ink3)",textTransform:"uppercase",letterSpacing:"1px",marginBottom:10}}>{lb.field} / {lb.how}</div>
-            {data.fields.map((field,fi)=>(
-              <div key={fi} style={{borderLeft:"3px solid var(--navy)",paddingLeft:14,marginBottom:13}}>
-                <div style={{fontWeight:700,fontSize:14,color:"var(--navy)",marginBottom:3}}>{field.f}</div>
-                <div style={{fontSize:13,color:"var(--ink2)",lineHeight:1.65}}>{field.h}</div>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {data.tips.length>0&&(
-          <div style={{background:"#fffbf0",borderRadius:10,padding:"14px 16px",border:"1px solid #fcd34d"}}>
-            <div style={{fontSize:11,fontWeight:700,color:"var(--amber)",textTransform:"uppercase",letterSpacing:"1px",marginBottom:8}}>💡 {lb.tip}</div>
-            {data.tips.map((tip,ti)=>(
-              <div key={ti} style={{fontSize:13,color:"var(--ink2)",lineHeight:1.65,paddingBottom:ti<data.tips.length-1?8:0,borderBottom:ti<data.tips.length-1?"1px solid #fde68a":"none",marginBottom:ti<data.tips.length-1?8:0}}>
-                {tip}
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      <div style={{display:"flex",justifyContent:"space-between",gap:10}}>
-        {activeStep>0
-          ?<Btn onClick={()=>setActiveStep(activeStep-1)} variant="secondary" style={{padding:"10px 18px"}}>{lb.prev}</Btn>
-          :<div/>
-        }
-        {activeStep<IMM5508_STEPS.length-1
-          ?<Btn onClick={()=>setActiveStep(activeStep+1)} style={{padding:"10px 18px"}}>{lb.next}</Btn>
-          :<Btn variant="success" style={{padding:"10px 18px",cursor:"default"}}>✓ {lb.done}</Btn>
-        }
-      </div>
-    </div>
-  );
-}
-
-const PHASES = [
-  {id:'checklist',icon:'📋',en:'Document Checklist',es:'Lista de Documentos',fr:'Liste de Documents',pt:'Lista de Documentos',ar:'قائمة المستندات',hi:'दस्तावेज़ सूची',zh:'文件清单',uk:'Список документів',ru:'Список документов',ko:'서류 체크리스트',ro:'Lista de documente'},
-  {id:'riskletter',icon:'✍️',en:'Risk Letter Builder',es:'Constructor de Carta de Riesgos',fr:'Rédacteur de Lettre de Risques',ko:'위험 편지 작성기',ro:'Redactor scrisoare de risc'},
-  {id:'imm5508',icon:'📝',en:'How to fill IMM 5508',es:'Cómo llenar el IMM 5508',fr:'Remplir le IMM 5508',ko:'IMM 5508 작성 방법',ro:'Completare IMM 5508'},
-  {id:'imm5476',icon:'📄',en:'Form IMM 5476',es:'Formulario IMM 5476',fr:'Formulaire IMM 5476',ko:'양식 IMM 5476'},
-  {id:'submission',icon:'📮',en:'How to Submit',es:'Cómo Enviar',fr:'Comment Soumettre',ko:'제출 방법',ro:'Cum să trimiteți'},
-  {id:'hearing',icon:'💻',en:'Hearing Preparation',es:'Preparación para Audiencia',fr:'Préparation à l\'Audience',ko:'청문회 준비',ro:'Pregătire pentru audiere'},
-  {id:'chat',icon:'💬',en:'Ask a Question',es:'Hacer una Pregunta',fr:'Poser une Question',ko:'질문하기',ro:'Pune o întrebare'},
-];
-
-// card color logic helper
-function phaseColor(pct, hasStarted) {
-  if(pct===100) return {bg:'#d4ede9',border:'#6bbdad',bar:'var(--teal)',label:'var(--teal)',status:'✓'};
-  if(pct>0)     return {bg:'#fef8ed',border:'#f5c842',bar:'#e6a817',label:'#b45309',status:'…'};
-  if(hasStarted)return {bg:'#fdeced',border:'#fca5a5',bar:'#ef4444',label:'var(--red)',status:'!'};
-  return        {bg:'var(--paper)',border:'var(--brd)',bar:'var(--ink3)',label:'var(--ink3)',status:''};
-}
-
-function OverviewBox({lang, progress, checkDone, checkTotal, riskDone, imm5476Done, profile}) {
-  const steps = [
-    {k:'checklist', icon:'📋',
-     en:`Documents: ${checkDone}/${checkTotal} items checked`,
-     es:`Documentos: ${checkDone}/${checkTotal} elementos marcados`,
-     fr:`Documents: ${checkDone}/${checkTotal} éléments cochés`},
-    {k:'riskletter', icon:'✍️',
-     en:`Risk letter: ${riskDone}/5 questions answered`,
-     es:`Carta de riesgos: ${riskDone}/5 preguntas respondidas`,
-     fr:`Lettre de risques: ${riskDone}/5 questions répondues`},
-    {k:'imm5476', icon:'📄',
-     en: imm5476Done>0 ? 'IMM 5476: in progress' : 'IMM 5476: not started',
-     es: imm5476Done>0 ? 'IMM 5476: en progreso' : 'IMM 5476: no iniciado',
-     fr: imm5476Done>0 ? 'IMM 5476: en cours' : 'IMM 5476: non commencé'},
-    {k:'submission', icon:'📮',
-     en:'Submission guide: read when ready',
-     es:'Guía de envío: léela cuando estés listo/a',
-     fr:'Guide de soumission: à lire quand vous êtes prêt(e)'},
+  const docs = [
+    {key:"letter",icon:"📄",name:T(UI.doc1,L), action:downloadLetter,      avail:!!documents?.docTexts?.letter},
+    ...(answers.hasRep==="yes"?[{key:"5476",icon:"📋",name:T(UI.doc2,L),action:()=>downloadPDF(documents.imm5476Blob,"IMM_5476_Filled.pdf"),avail:!!documents?.imm5476Blob}]:[]),
+    {key:"5508",icon:"📝",name:T(UI.doc3,L),   action:()=>downloadPDF(documents.imm5508Blob,"IMM_5508_Filled.pdf"), avail:!!documents?.imm5508Blob},
   ];
-  const total = progress.checklist + progress.riskletter + (imm5476Done>0?60:0);
-  const overall = Math.min(100, Math.round(total/3));
-  const T = (obj) => obj?.[lang]||obj?.en||'';
-  const overallLabel = {
-    en: overall===0?'Not started yet — begin with your Document Checklist':
-        overall<40?'Getting started — keep going!':
-        overall<80?'Good progress — you\'re on your way':
-        overall<100?'Almost ready — final review needed':
-        'Application ready to submit!',
-    es: overall===0?'Aún no has comenzado — empieza con tu Lista de Documentos':
-        overall<40?'Comenzando — ¡sigue adelante!':
-        overall<80?'Buen progreso — vas por buen camino':
-        overall<100?'Casi listo/a — revisión final necesaria':
-        '¡Solicitud lista para enviar!',
-    fr: overall===0?'Pas encore commencé — commencez par votre liste de documents':
-        overall<40?'Vous démarrez — continuez!':
-        overall<80?'Bon progrès — vous êtes en bonne voie':
-        overall<100?'Presque prêt(e) — révision finale nécessaire':
-        'Demande prête à soumettre!',
-  };
+
   return (
-    <div style={{background:'var(--paper)',borderRadius:14,border:'1.5px solid var(--brd)',padding:'18px 20px',marginBottom:18,boxShadow:'0 2px 12px rgba(30,58,92,.06)'}}>
-      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
-        <div style={{fontWeight:700,fontSize:14,color:'var(--ink)'}}>
-          📊 {lang==='es'?'Tu progreso general':lang==='fr'?'Votre progression globale':'Your overall progress'}
+    <div style={{minHeight:"100vh",background:"var(--bg)",padding:"0 0 48px"}}>
+      <style>{CSS}</style>
+      <div style={{background:"linear-gradient(135deg,var(--teal),#1a6b3e)",padding:"30px 20px"}}>
+        <div style={{maxWidth:560,margin:"0 auto",textAlign:"center"}}>
+          <div style={{fontSize:48,marginBottom:10}}>🎉</div>
+          <h1 style={{fontFamily:"Georgia,serif",color:"#fff",fontSize:"clamp(20px,4vw,26px)",marginBottom:8}}>{T(UI.successTitle,L)}</h1>
+          <p style={{color:"rgba(255,255,255,.8)",fontSize:14,lineHeight:1.65}}>{T(UI.successSub,L)}</p>
         </div>
-        <div style={{fontFamily:'Playfair Display,serif',fontSize:22,fontWeight:700,color:overall===100?'var(--teal)':overall>50?'var(--amber)':'var(--ink2)'}}>{overall}%</div>
       </div>
-      <div style={{height:7,background:'#e8e3db',borderRadius:4,overflow:'hidden',marginBottom:12}}>
-        <div style={{height:7,width:`${overall}%`,background:overall===100?'var(--teal)':overall>50?'#e6a817':'var(--navy)',borderRadius:4,transition:'width .8s ease'}}/>
-      </div>
-      <div style={{fontSize:13,color:overall===100?'var(--teal)':overall>50?'var(--amber)':'var(--ink2)',fontWeight:600,marginBottom:14}}>{T(overallLabel)}</div>
-      <div style={{display:'flex',flexDirection:'column',gap:6}}>
-        {steps.map(s=>{
-          const pct=progress[s.k]||0;
-          const c=pct===100?'var(--teal)':pct>0?'var(--amber)':'var(--ink3)';
-          const dot=pct===100?'✓':pct>0?'◑':'○';
-          return(
-            <div key={s.k} style={{display:'flex',alignItems:'center',gap:8,fontSize:13}}>
-              <span style={{color:c,fontWeight:700,width:14,flexShrink:0,fontSize:11}}>{dot}</span>
-              <span style={{color:'var(--ink2)'}}>{T(s)}</span>
+      <div style={{maxWidth:560,margin:"0 auto",padding:"22px 16px"}}>
+        {answers.deadline&&<div style={{background:"var(--redp)",borderRadius:12,padding:"12px 16px",marginBottom:18,fontSize:13,color:"var(--red)",fontWeight:600,textAlign:"center"}}>
+          ⏰ {T(UI.deadline,L)}: {fmtDate(answers.deadline)} — {Math.max(0,daysLeft(answers.deadline)||0)} {T(UI.daysLeft,L)}
+        </div>}
+        <div style={{display:"flex",flexDirection:"column",gap:10,marginBottom:20}}>
+          {docs.map(doc=>(
+            <div key={doc.key} style={{background:"var(--paper)",borderRadius:14,padding:"16px",border:`1.5px solid ${doc.avail?"var(--teal)":"var(--brd)"}`,display:"flex",gap:12,alignItems:"center"}}>
+              <span style={{fontSize:24,flexShrink:0}}>{doc.icon}</span>
+              <div style={{flex:1}}><div style={{fontWeight:700,fontSize:13,color:"var(--ink)"}}>{doc.name}</div></div>
+              {doc.avail&&<Btn onClick={doc.action} variant="teal" style={{padding:"9px 16px",fontSize:13,flexShrink:0}}>{dl===doc.key?"…":T(UI.download,L)}</Btn>}
             </div>
-          );
-        })}
+          ))}
+        </div>
+        <div style={{background:"var(--amberp)",borderRadius:12,padding:"12px 16px",marginBottom:18,fontSize:13,color:"var(--amber)",lineHeight:1.65}}>
+          ✏️ {T(UI.sign,L)}
+        </div>
+        <button onClick={onRestart} style={{background:"none",border:"1px solid var(--brd)",borderRadius:10,padding:"10px 20px",cursor:"pointer",color:"var(--ink3)",fontFamily:"inherit",fontSize:13,display:"block",margin:"0 auto"}}>{T(UI.startOver,L)}</button>
       </div>
     </div>
   );
-}
-
-function Dashboard({lang, profile, checklist, riskLetter, imm5476Data, dispatch, onReset}) {
-  const [active,setActive] = useState(null);
-  const T = (obj) => obj?.[lang]||obj?.en||'';
-  const checkDone = ITEMS.filter(i=>checklist[i.id]).length;
-  const checkTotal = ITEMS.length;
-  const riskDone = Object.values(riskLetter||{}).filter(v=>v?.trim()).length;
-  const imm5476Done = Object.keys(imm5476Data||{}).length;
-
-  // pct per phase (0-100)
-  const progress = {
-    checklist: Math.round((checkDone/checkTotal)*100),
-    riskletter: Math.round((riskDone/5)*100),
-    imm5508: 0,
-    imm5476: imm5476Done>=4?100:imm5476Done>0?Math.round((imm5476Done/12)*100):0,
-    submission: 0,
-    hearing: 0,
-    chat: 0,
-  };
-
-  // was anything ever touched?
-  const started = {
-    checklist: checkDone>0,
-    riskletter: riskDone>0,
-    imm5508: false,
-    imm5476: imm5476Done>0,
-    submission: false,
-    hearing: false,
-    chat: false,
-  };
-
-  const renderPhase = () => {
-    switch(active) {
-      case 'imm5508': return <IMM5508Guide lang={lang}/>;
-      case 'checklist': return <ChecklistScreen lang={lang} profile={profile} checklist={checklist} onChange={(id,v)=>dispatch({type:'CHECK',id,v})}/>;
-      case 'riskletter': return <RiskLetterBuilder lang={lang} profile={profile} riskLetter={riskLetter} onChange={(id,v)=>dispatch({type:'RISK',id,v})}/>;
-      case 'imm5476': return <IMM5476 lang={lang} profile={profile} data={imm5476Data} onChange={(id,v)=>dispatch({type:'IMM',id,v})}/>;
-      case 'submission': return <SubmissionGuide/>;
-      case 'hearing': return <HearingGuide/>;
-      case 'chat': return <Chat lang={lang} profile={profile}/>;
-      default: return null;
-    }
-  };
-
-  if(active) {
-    const phase = PHASES.find(p=>p.id===active);
-    return (
-      <div style={{minHeight:'100vh',background:'var(--bg)'}}>
-        <div style={{background:'var(--navy2)',padding:'14px 20px',display:'flex',alignItems:'center',gap:14,position:'sticky',top:0,zIndex:10}}>
-          <button onClick={()=>setActive(null)} style={{background:'rgba(255,255,255,.12)',border:'none',borderRadius:8,padding:'6px 13px',color:'#fff',fontFamily:'Inter,sans-serif',fontSize:13,fontWeight:600,cursor:'pointer'}}>{UI.back?.[lang]||'← Back'}</button>
-          <div style={{fontFamily:'Playfair Display,serif',color:'#fff',fontSize:18}}>{phase?.icon} {T(phase)}</div>
-        </div>
-        <div style={{maxWidth:620,margin:'0 auto',padding:'24px 16px 48px'}}>
-          {renderPhase()}
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div style={{minHeight:'100vh',background:'var(--bg)'}}>
-      <div style={{background:'linear-gradient(140deg,var(--navy2) 0%,var(--navy) 60%,#1a5c52 100%)',padding:'26px 20px 32px'}}>
-        <div style={{maxWidth:620,margin:'0 auto'}}>
-          <div style={{color:'rgba(255,255,255,.5)',fontSize:11,letterSpacing:'2.5px',textTransform:'uppercase',marginBottom:6}}>⚖️ PRRA Guide · Canada</div>
-          <h1 style={{fontFamily:'Playfair Display,serif',color:'#fff',fontSize:'clamp(22px,5vw,32px)',marginBottom:4,lineHeight:1.2}}>
-            {profile?.firstName?`${UI.hello?.[lang]||'Hello'}, ${profile.firstName}`:(UI.deadline?.[lang]||'Your PRRA Process')}
-          </h1>
-          <div style={{color:'rgba(255,255,255,.65)',fontSize:14,marginBottom:8}}>
-            {profile?.country} · {profile?.isFirstPRRA?(UI.firstPRRA?.[lang]||'First PRRA application'):(UI.repeatPRRA?.[lang]||'Repeat PRRA application')}
-          </div>
-          <div style={{display:'flex',flexWrap:'wrap',gap:7}}>
-            <span style={{background: profile?.prraType==='restricted'?'rgba(185,28,28,.85)':'rgba(26,92,82,.85)', color:'#fff',fontSize:11,fontWeight:700,padding:'3px 10px',borderRadius:20,letterSpacing:'.5px'}}>
-              {profile?.prraType==='restricted'
-                ? (lang==='es'?'⚠️ PRRA Restringido — solo Art. 97':lang==='fr'?'⚠️ PRRA Restreint — art. 97 seulement':'⚠️ Restricted PRRA — s.97 only')
-                : (lang==='es'?'✓ PRRA Completo — Art. 96 + 97':lang==='fr'?'✓ PRRA Complet — art. 96 + 97':'✓ Full PRRA — s.96 + s.97')}
-            </span>
-            {profile?.claimRejected==='yes'&&(
-              <span style={{background:'rgba(180,83,9,.85)',color:'#fff',fontSize:11,fontWeight:700,padding:'3px 10px',borderRadius:20,letterSpacing:'.5px'}}>
-                {lang==='es'?'⚠️ Solo evidencia nueva (s.113a)':lang==='fr'?'⚠️ Nouvelles preuves uniquement (art.113a)':'⚠️ New evidence only (s.113a)'}
-              </span>
-            )}
-          </div>
-        </div>
-      </div>
-      <div style={{maxWidth:620,margin:'0 auto',padding:'20px 16px 48px'}}>
-        <Countdown deadline={profile?.deadline} lang={lang}/>
-
-        {/* ── OVERVIEW BOX ── */}
-        <OverviewBox lang={lang} progress={progress} checkDone={checkDone} checkTotal={checkTotal} riskDone={riskDone} imm5476Done={imm5476Done} profile={profile}/>
-
-        {/* ── PHASE CARDS ── */}
-        <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(168px,1fr))',gap:11,marginBottom:22}}>
-          {PHASES.map(phase=>{
-            const pct = progress[phase.id]||0;
-            const col = phaseColor(pct, started[phase.id]);
-            const isActionable = ['checklist','riskletter','imm5476','submission','hearing','chat'].includes(phase.id);
-            return(
-              <button key={phase.id} onClick={()=>setActive(phase.id)}
-                style={{background:col.bg,border:`2px solid ${col.border}`,borderRadius:14,padding:'16px 15px',textAlign:'left',cursor:'pointer',fontFamily:'Inter,sans-serif',transition:'all .2s',position:'relative',overflow:'hidden',outline:'none'}}
-                onMouseEnter={e=>{e.currentTarget.style.transform='translateY(-2px)';e.currentTarget.style.boxShadow='0 6px 20px rgba(30,58,92,.13)';}}
-                onMouseLeave={e=>{e.currentTarget.style.transform='none';e.currentTarget.style.boxShadow='none';}}>
-                {/* color bar at bottom */}
-                <div style={{position:'absolute',bottom:0,left:0,right:0,height:4,background:col.border,opacity:.6}}/>
-                {/* progress bar inside */}
-                {pct>0&&pct<100&&<div style={{position:'absolute',bottom:0,left:0,height:4,width:`${pct}%`,background:col.bar,opacity:1,transition:'width .6s ease'}}/>}
-                <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:8}}>
-                  <span style={{fontSize:24}}>{phase.icon}</span>
-                  {col.status&&<span style={{fontSize:14,fontWeight:800,color:col.label}}>{col.status}</span>}
-                </div>
-                <div style={{fontWeight:700,fontSize:13,color:'var(--ink)',lineHeight:1.3,marginBottom:pct>0?5:0}}>{T(phase)}</div>
-                {pct>0&&pct<100&&<div style={{fontSize:11,color:col.label,fontWeight:700}}>{pct}{UI.complete?.[lang]||'% complete'}</div>}
-                {pct===100&&<div style={{fontSize:11,color:'var(--teal)',fontWeight:700}}>
-                  {lang==='es'?'Completado':lang==='fr'?'Complété':'Completed'}
-                </div>}
-                {pct===0&&started[phase.id]&&<div style={{fontSize:11,color:'var(--red)',fontWeight:700}}>
-                  {lang==='es'?'Sin completar':lang==='fr'?'Non complété':'Incomplete'}
-                </div>}
-              </button>
-            );
-          })}
-        </div>
-
-        <div style={{background:'var(--paper)',borderRadius:12,padding:'14px 18px',border:'1px solid var(--brd)',fontSize:12.5,color:'var(--ink2)',lineHeight:1.7,marginBottom:14}}>
-          <strong style={{color:'var(--ink)'}}>⚖️</strong> {UI.disclaimer?.[lang]||UI.disclaimer?.en} <a href="https://canada.ca" target="_blank" rel="noreferrer" style={{color:'var(--navy)'}}>canada.ca</a>.
-        </div>
-        <button onClick={onReset} style={{background:'none',border:'1px solid var(--brd)',borderRadius:8,padding:'8px 16px',cursor:'pointer',color:'var(--ink3)',fontFamily:'Inter,sans-serif',fontSize:12}}>{UI.startOver?.[lang]||'Start over'}</button>
-      </div>
-    </div>
-  );
-}
-
-// ── STATE ─────────────────────────────────────────────────────────────────────
-const init = {checklist:{},riskLetter:{},imm5476:{}};
-function reducer(state,action) {
-  switch(action.type){
-    case 'CHECK': return {...state,checklist:{...state.checklist,[action.id]:action.v}};
-    case 'RISK': return {...state,riskLetter:{...state.riskLetter,[action.id]:action.v}};
-    case 'IMM': return {...state,imm5476:{...state.imm5476,[action.id]:action.v}};
-    case 'RESET': return init;
-    default: return state;
-  }
 }
 
 // ── ROOT APP ──────────────────────────────────────────────────────────────────
 export default function App() {
   const saved = load();
-  const [screen,setScreen] = useState(saved?.profile?'resume':'lang');
-  const [lang,setLang] = useState(saved?.lang||'en');
-  const [accepted,setAccepted] = useState(false);
-  const [profile,setProfile] = useState(saved?.profile||null);
-  const [state,dispatch] = useReducer(reducer,{
-    checklist: saved?.checklist||{},
-    riskLetter: saved?.riskLetter||{},
-    imm5476: saved?.imm5476||{},
-  });
+  const [screen, setScreen]     = useState(saved?"resume":"lang");
+  const [lang, setLang]         = useState(saved?.lang||"en");
+  const [stepIdx, setStepIdx]   = useState(saved?.stepIdx||0);
+  const [answers, setAnswers]   = useState(saved?.answers||{});
+  const [feedbacks, setFeedbacks] = useState(saved?.feedbacks||{});
+  const [documents, setDocuments] = useState(null);
 
-  // Save on every state change
+  const activeSteps = getActiveSteps(answers);
+  const totalSteps  = activeSteps.length;
+  const currentStep = activeSteps[stepIdx] || activeSteps[activeSteps.length-1];
+
+  // Persist
   useEffect(()=>{
-    if(profile) save({lang,profile,...state});
-  },[lang,profile,state]);
+    if(screen!=="lang") save({lang,stepIdx,answers,feedbacks,screen});
+  },[lang,stepIdx,answers,feedbacks,screen]);
 
-  const dispatchAndSave = useCallback((action)=>{
-    dispatch(action);
-  },[]);
+  const avgStrength = (() => {
+    const scores = Object.values(feedbacks).map(f=>f?.strength).filter(Boolean);
+    return scores.length ? scores.reduce((a,b)=>a+b,0)/scores.length : null;
+  })();
 
-  const reset = () => {
-    clear();
-    dispatch({type:'RESET'});
-    setProfile(null);
-    setLang('en');
-    setScreen('lang');
+  const handleAnswer = (field, value, extra={}) => {
+    let newAnswers = answers;
+    if(field) {
+      newAnswers = {...answers, [field]:value, ...extra};
+      // Special: calculate deadline
+      if(field==="notificationDate" && value) {
+        const days = newAnswers.notificationMethod==="inperson"?15:22;
+        newAnswers.deadline = addDays(value, days);
+      }
+      setAnswers(newAnswers);
+    }
+    // Advance to next step
+    const newActive = getActiveSteps(newAnswers);
+    const nextIdx = stepIdx+1;
+    if(nextIdx < newActive.length) {
+      setStepIdx(nextIdx);
+    } else {
+      setScreen("generating");
+    }
   };
 
-  if(screen==='lang') return (
-    <>
-      <style>{CSS}</style>
-      <LangScreen onSelect={l=>{setLang(l);setScreen('disclaimer');}}/>
-    </>
+  const handleFeedbackDone = (field, finalAnswer, fb) => {
+    const na = {...answers, [field]:finalAnswer};
+    setAnswers(na);
+    setFeedbacks(f=>({...f,[field]:fb}));
+    const newActive = getActiveSteps(na);
+    const next = stepIdx+1;
+    if(next < newActive.length) setStepIdx(next);
+    else setScreen("generating");
+  };
+
+  const handleBack = () => {
+    if(stepIdx > 0) setStepIdx(i=>i-1);
+  };
+
+  const restart = () => {
+    wipe();
+    setScreen("lang"); setLang("en"); setStepIdx(0);
+    setAnswers({}); setFeedbacks({}); setDocuments(null);
+  };
+
+  if(screen==="lang") return <LangSelect onSelect={l=>{setLang(l);setScreen("wizard");}}/>;
+
+  if(screen==="resume") return (
+    <ResumeScreen saved={saved} onResume={()=>setScreen(saved.screen||"wizard")} onRestart={restart}/>
   );
 
-  if(screen==='disclaimer') return (
-    <>
-      <style>{CSS}</style>
-      <DisclaimerScreen lang={lang} onAccept={()=>setScreen('diagnosis')} onDecline={()=>{setLang('en');setScreen('lang');}}/>
-    </>
+  if(screen==="generating") return (
+    <GeneratingScreen lang={lang} answers={answers} onDone={docs=>{setDocuments(docs);setScreen("paywall");}}/>
   );
 
-  if(screen==='resume') return (
-    <>
-      <style>{CSS}</style>
-      <ResumeScreen saved={saved} onResume={()=>setScreen('dashboard')} onRestart={reset}/>
-    </>
+  if(screen==="paywall") return (
+    <PaywallScreen lang={lang} answers={answers} onPay={()=>setScreen("success")}/>
   );
 
-  if(screen==='diagnosis') return (
-    <>
-      <style>{CSS}</style>
-      <Diagnosis lang={lang} onDone={p=>{setProfile(p);setScreen('dashboard');}}/>
-    </>
+  if(screen==="success") return (
+    <SuccessScreen lang={lang} answers={answers} documents={documents} onRestart={restart}/>
   );
 
+  // Wizard
   return (
-    <>
+    <div style={{minHeight:"100vh",background:"var(--bg)",display:"flex",flexDirection:"column"}}>
       <style>{CSS}</style>
-      <Dashboard
-        lang={lang} profile={profile}
-        checklist={state.checklist} riskLetter={state.riskLetter} imm5476Data={state.imm5476}
-        dispatch={dispatchAndSave} onReset={reset}
-      />
-    </>
+      {currentStep&&(
+        <>
+          <PhaseBar phase={currentStep.phase} stepNum={stepIdx+1} totalSteps={totalSteps} lang={lang}/>
+          <WizardStep
+            key={currentStep.id}
+            stepData={currentStep}
+            lang={lang}
+            answers={answers}
+            onAnswer={handleAnswer}
+            onBack={handleBack}
+            feedbackState={feedbacks[currentStep.field]}
+            onFeedbackDone={handleFeedbackDone}
+            avgStrength={currentStep.phase===6?avgStrength:null}
+          />
+        </>
+      )}
+    </div>
   );
 }
