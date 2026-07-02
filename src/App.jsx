@@ -947,7 +947,114 @@ function SuccessScreen({lang, answers, documents, onRestart}) {
   );
 }
 
-// ── ROOT APP ──────────────────────────────────────────────────────────────────
+// ── DEADLINE PASSED SCREEN ────────────────────────────────────────────────────
+function DeadlinePassedScreen({lang, deadline, onRestart}) {
+  const L = lang;
+  const msg = {
+    en:{
+      title:"We are sorry — your deadline has passed",
+      body:"The deadline to submit your Pre-Removal Risk Assessment (PRRA) application was {date}. Unfortunately, since that date has passed, you are no longer able to apply through the standard process.",
+      exceptional:"You may still have options under exceptional circumstances.",
+      option1:"Contact the IRCC Contact Centre",
+      option1sub:"Find the phone number on the IRCC website and explain your situation.",
+      option1link:"https://www.canada.ca/en/immigration-refugees-citizenship/corporate/contact-ircc.html",
+      option1btn:"IRCC Contact Page →",
+      option2:"Submit an online request to IRCC",
+      option2sub:"Use the official IRCC web form to explain that your deadline has passed and ask for guidance.",
+      option2btn:"IRCC Web Form →",
+      option3:"Contact your assigned immigration officer",
+      option3sub:"If you know who your CBSA officer is, contact them directly as soon as possible.",
+      urgent:"Act immediately — every day matters.",
+      restart:"Start a new application",
+    },
+    es:{
+      title:"Lo sentimos — tu fecha límite ha pasado",
+      body:"La fecha límite para presentar tu solicitud de Evaluación de Riesgos Antes de la Remoción (PRRA) era el {date}. Lamentablemente, dado que esa fecha ha pasado, ya no puedes aplicar a través del proceso estándar.",
+      exceptional:"Aún puedes tener opciones bajo circunstancias excepcionales.",
+      option1:"Contactar al Centro de Contacto del IRCC",
+      option1sub:"Encuentra el número de teléfono en el sitio web del IRCC y explica tu situación.",
+      option1link:"https://www.canada.ca/en/immigration-refugees-citizenship/corporate/contact-ircc.html",
+      option1btn:"Página de Contacto del IRCC →",
+      option2:"Enviar una solicitud en línea al IRCC",
+      option2sub:"Usa el formulario web oficial del IRCC para explicar que tu fecha límite ha pasado y pedir orientación.",
+      option2btn:"Formulario Web del IRCC →",
+      option3:"Contactar a tu oficial de inmigración asignado",
+      option3sub:"Si sabes quién es tu oficial de la CBSA, contáctalo directamente lo antes posible.",
+      urgent:"Actúa de inmediato — cada día cuenta.",
+      restart:"Iniciar una nueva solicitud",
+    },
+    fr:{
+      title:"Nous sommes désolés — votre date limite est passée",
+      body:"La date limite pour soumettre votre demande d'Examen des Risques Avant Renvoi (ERAR) était le {date}. Malheureusement, cette date étant passée, vous ne pouvez plus postuler par le processus standard.",
+      exceptional:"Vous pourriez encore avoir des options dans des circonstances exceptionnelles.",
+      option1:"Contacter le Centre de contact de l'IRCC",
+      option1sub:"Trouvez le numéro de téléphone sur le site web de l'IRCC et expliquez votre situation.",
+      option1link:"https://www.canada.ca/en/immigration-refugees-citizenship/corporate/contact-ircc.html",
+      option1btn:"Page de contact de l'IRCC →",
+      option2:"Soumettre une demande en ligne à l'IRCC",
+      option2sub:"Utilisez le formulaire web officiel de l'IRCC pour expliquer que votre date limite est passée et demander des conseils.",
+      option2btn:"Formulaire web de l'IRCC →",
+      option3:"Contacter votre agent d'immigration assigné",
+      option3sub:"Si vous savez qui est votre agent de l'ASFC, contactez-le directement dès que possible.",
+      urgent:"Agissez immédiatement — chaque jour compte.",
+      restart:"Commencer une nouvelle demande",
+    },
+  };
+  const m = msg[L] || msg.en;
+  const bodyText = m.body.replace("{date}", fmtDate(deadline));
+
+  const optStyle = {background:"var(--paper)",borderRadius:14,padding:"18px 20px",border:"1px solid var(--brd)",marginBottom:12};
+  const linkBtn  = {display:"inline-block",marginTop:10,background:"var(--navy)",color:"#fff",borderRadius:8,padding:"10px 18px",fontSize:13,fontWeight:700,textDecoration:"none",fontFamily:"inherit"};
+
+  return (
+    <div style={{minHeight:"100vh",background:"var(--bg)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"flex-start",padding:"0 0 48px"}}>
+      <style>{CSS}</style>
+      {/* Header */}
+      <div style={{width:"100%",background:"linear-gradient(135deg,#7f1d1d,var(--red))",padding:"36px 20px 32px",textAlign:"center"}}>
+        <div style={{fontSize:52,marginBottom:14}}>⏰</div>
+        <h1 style={{fontFamily:"Georgia,serif",color:"#fff",fontSize:"clamp(20px,4vw,26px)",lineHeight:1.3,marginBottom:12,maxWidth:560,margin:"0 auto 12px"}}>{m.title}</h1>
+        <div style={{background:"rgba(0,0,0,.25)",borderRadius:10,display:"inline-block",padding:"8px 20px",color:"#fff",fontSize:14,fontWeight:600,marginTop:10}}>
+          {T(UI.deadline,L)}: {fmtDate(deadline)}
+        </div>
+      </div>
+
+      {/* Body */}
+      <div style={{maxWidth:560,width:"100%",padding:"24px 16px"}}>
+        <p style={{fontSize:15,color:"var(--ink)",lineHeight:1.75,marginBottom:20,background:"var(--paper)",borderRadius:12,padding:"16px 18px",borderLeft:"4px solid var(--red)"}}>{bodyText}</p>
+
+        {/* Exceptional circumstances note */}
+        <div style={{background:"var(--amberp)",borderRadius:12,padding:"14px 18px",marginBottom:22,borderLeft:"4px solid var(--amber)"}}>
+          <p style={{fontSize:14,color:"var(--amber)",fontWeight:700,marginBottom:4}}>⚠️ {m.exceptional}</p>
+          <p style={{fontSize:13,color:"var(--ink2)",lineHeight:1.6,fontWeight:600}}>{m.urgent}</p>
+        </div>
+
+        {/* Option 1 — IRCC Contact */}
+        <div style={optStyle}>
+          <div style={{fontSize:16,fontWeight:700,color:"var(--ink)",marginBottom:4}}>1. {m.option1}</div>
+          <p style={{fontSize:13,color:"var(--ink2)",lineHeight:1.6,marginBottom:6}}>{m.option1sub}</p>
+          <a href={m.option1link} target="_blank" rel="noopener noreferrer" style={linkBtn}>{m.option1btn}</a>
+        </div>
+
+        {/* Option 2 — Web Form */}
+        <div style={optStyle}>
+          <div style={{fontSize:16,fontWeight:700,color:"var(--ink)",marginBottom:4}}>2. {m.option2}</div>
+          <p style={{fontSize:13,color:"var(--ink2)",lineHeight:1.6,marginBottom:6}}>{m.option2sub}</p>
+          <a href="https://www.canada.ca/en/immigration-refugees-citizenship/corporate/contact-ircc/web-form.html" target="_blank" rel="noopener noreferrer" style={linkBtn}>{m.option2btn}</a>
+        </div>
+
+        {/* Option 3 — Immigration officer */}
+        <div style={optStyle}>
+          <div style={{fontSize:16,fontWeight:700,color:"var(--ink)",marginBottom:4}}>3. {m.option3}</div>
+          <p style={{fontSize:13,color:"var(--ink2)",lineHeight:1.6}}>{m.option3sub}</p>
+        </div>
+
+        <button onClick={onRestart} style={{background:"none",border:"1px solid var(--brd)",borderRadius:10,padding:"10px 20px",cursor:"pointer",color:"var(--ink3)",fontFamily:"inherit",fontSize:13,display:"block",margin:"24px auto 0"}}>{m.restart}</button>
+      </div>
+    </div>
+  );
+}
+
+
 export default function App() {
   const saved = load();
   const [screen, setScreen]     = useState(saved?"resume":"lang");
@@ -975,10 +1082,17 @@ export default function App() {
     let newAnswers = answers;
     if(field) {
       newAnswers = {...answers, [field]:value, ...extra};
-      // Special: calculate deadline
+      // Special: calculate deadline and check if already passed
       if(field==="notificationDate" && value) {
         const days = newAnswers.notificationMethod==="inperson"?15:22;
-        newAnswers.deadline = addDays(value, days);
+        const dl = addDays(value, days);
+        newAnswers.deadline = dl;
+        // If deadline is in the past, stop here
+        if(daysLeft(dl) < 0) {
+          setAnswers(newAnswers);
+          setScreen("deadlinePassed");
+          return;
+        }
       }
       setAnswers(newAnswers);
     }
@@ -1013,6 +1127,10 @@ export default function App() {
   };
 
   if(screen==="lang") return <LangSelect onSelect={l=>{setLang(l);setScreen("wizard");}}/>;
+
+  if(screen==="deadlinePassed") return (
+    <DeadlinePassedScreen lang={lang} deadline={answers.deadline} onRestart={restart}/>
+  );
 
   if(screen==="resume") return (
     <ResumeScreen saved={saved} onResume={()=>setScreen(saved.screen||"wizard")} onRestart={restart}/>
