@@ -950,105 +950,167 @@ function SuccessScreen({lang, answers, documents, onRestart}) {
 // ── DEADLINE PASSED SCREEN ────────────────────────────────────────────────────
 function DeadlinePassedScreen({lang, deadline, onRestart}) {
   const L = lang;
-  const msg = {
+
+  const IRCC_WEBFORM = "https://www.canada.ca/en/immigration-refugees-citizenship/corporate/contact-ircc/web-form.html";
+  const INTL_PHONE   = "https://www.canada.ca/en/employment-social-development/corporate/contact/1-800-o-canada-international.html";
+  const BRO_EMAIL    = "mailto:vancouverbro@cic.gc.ca?subject=PRRA%20Application%20%E2%80%93%20File%20Number%3A%20INSERT%20APPLICATION%20FILE%20NUMBER%20HERE";
+
+  const txt = {
     en:{
-      title:"We are sorry — your deadline has passed",
-      body:"The deadline to submit your Pre-Removal Risk Assessment (PRRA) application was {date}. Unfortunately, since that date has passed, you are no longer able to apply through the standard process.",
-      exceptional:"You may still have options under exceptional circumstances.",
-      option1:"Contact the IRCC Contact Centre",
-      option1sub:"Find the phone number on the IRCC website and explain your situation.",
-      option1link:"https://www.canada.ca/en/immigration-refugees-citizenship/corporate/contact-ircc.html",
-      option1btn:"IRCC Contact Page →",
-      option2:"Submit an online request to IRCC",
-      option2sub:"Use the official IRCC web form to explain that your deadline has passed and ask for guidance.",
-      option2btn:"IRCC Web Form →",
-      option3:"Contact your assigned immigration officer",
-      option3sub:"If you know who your CBSA officer is, contact them directly as soon as possible.",
-      urgent:"Act immediately — every day matters.",
+      title:"We are sorry — your application deadline has passed",
+      body:"The deadline to submit your Pre-Removal Risk Assessment (PRRA) application was {date}. Unfortunately, as that date has now passed, you are no longer able to apply through the standard process.",
+      note:"You may still have options available under exceptional circumstances. We strongly encourage you to act immediately — every day matters.",
+      o1title:"Contact the officer who gave you the PRRA form, or your immigration consultant",
+      o1body:"Reach out directly to the CBSA officer who issued your PRRA notification, or contact your immigration lawyer or consultant if you have one. Explain that your deadline has passed and ask what steps can be taken.",
+      o2title:"Email the IRCC Backlog Reduction Office (BRO)",
+      o2body:"The BRO handles PRRA applications and may be able to assist you. Send an email to the Vancouver BRO office at:",
+      o2include:"Include the following in your email:",
+      o2items:[
+        "Your full name, exactly as it appears on your official documents",
+        "Your Unique Client Identifier (UCI) or Client ID number",
+        "Your application file number in the subject line of the email",
+      ],
+      o2note:"Before sending, replace INSERT APPLICATION FILE NUMBER HERE in the subject line with your actual file number.",
+      o2btn:"Open email draft →",
+      o3title:"Contact IRCC online or by phone",
+      o3body:"You can submit an online request to IRCC explaining your situation, or call them directly.",
+      o3webBtn:"IRCC Online Web Form →",
+      o3phone:"You can also call IRCC directly at:",
+      o3num:"1-888-242-2100",
+      o3hours:"Monday to Friday, 8:00 AM – 4:00 PM (Canada only)",
+      o4title:"General information line — last resort",
+      o4body:"For general questions only, you may call 1-800-O-Canada (1-800-622-6232). Please note this number is for use within Canada only.",
+      o4intl:"Calling from outside Canada?",
+      o4intlBtn:"Find international contact numbers →",
       restart:"Start a new application",
     },
     es:{
-      title:"Lo sentimos — tu fecha límite ha pasado",
-      body:"La fecha límite para presentar tu solicitud de Evaluación de Riesgos Antes de la Remoción (PRRA) era el {date}. Lamentablemente, dado que esa fecha ha pasado, ya no puedes aplicar a través del proceso estándar.",
-      exceptional:"Aún puedes tener opciones bajo circunstancias excepcionales.",
-      option1:"Contactar al Centro de Contacto del IRCC",
-      option1sub:"Encuentra el número de teléfono en el sitio web del IRCC y explica tu situación.",
-      option1link:"https://www.canada.ca/en/immigration-refugees-citizenship/corporate/contact-ircc.html",
-      option1btn:"Página de Contacto del IRCC →",
-      option2:"Enviar una solicitud en línea al IRCC",
-      option2sub:"Usa el formulario web oficial del IRCC para explicar que tu fecha límite ha pasado y pedir orientación.",
-      option2btn:"Formulario Web del IRCC →",
-      option3:"Contactar a tu oficial de inmigración asignado",
-      option3sub:"Si sabes quién es tu oficial de la CBSA, contáctalo directamente lo antes posible.",
-      urgent:"Actúa de inmediato — cada día cuenta.",
+      title:"Lo sentimos — la fecha límite de tu solicitud ha pasado",
+      body:"La fecha límite para presentar tu solicitud de Evaluación de Riesgos Antes de la Remoción (PRRA) era el {date}. Lamentablemente, dado que esa fecha ya ha pasado, ya no puedes aplicar a través del proceso estándar.",
+      note:"Es posible que todavía tengas opciones disponibles bajo circunstancias excepcionales. Te instamos a actuar de inmediato — cada día cuenta.",
+      o1title:"Contacta al oficial que te entregó el formulario PRRA, o a tu consultor de inmigración",
+      o1body:"Comunícate directamente con el oficial de la CBSA que emitió tu notificación PRRA, o contacta a tu abogado o consultor de inmigración si tienes uno. Explica que tu fecha límite ha pasado y pregunta qué pasos se pueden tomar.",
+      o2title:"Envía un correo electrónico a la Oficina de Reducción de Atrasos (BRO) del IRCC",
+      o2body:"La BRO maneja las solicitudes PRRA y puede ayudarte. Envía un correo electrónico a la oficina BRO de Vancouver a:",
+      o2include:"Incluye lo siguiente en tu correo:",
+      o2items:[
+        "Tu nombre completo, exactamente como aparece en tus documentos oficiales",
+        "Tu Identificador Único de Cliente (UCI) o número de ID de cliente",
+        "El número de expediente de tu solicitud en el asunto del correo",
+      ],
+      o2note:"Antes de enviar, reemplaza INSERT APPLICATION FILE NUMBER HERE en el asunto con tu número de expediente real.",
+      o2btn:"Abrir borrador de correo →",
+      o3title:"Contacta al IRCC en línea o por teléfono",
+      o3body:"Puedes enviar una solicitud en línea al IRCC explicando tu situación, o llamarlos directamente.",
+      o3webBtn:"Formulario web en línea del IRCC →",
+      o3phone:"También puedes llamar al IRCC directamente a:",
+      o3num:"1-888-242-2100",
+      o3hours:"De lunes a viernes, 8:00 AM – 4:00 PM (solo dentro de Canadá)",
+      o4title:"Línea de información general — último recurso",
+      o4body:"Solo para preguntas generales, puedes llamar al 1-800-O-Canada (1-800-622-6232). Ten en cuenta que este número es únicamente para uso dentro de Canadá.",
+      o4intl:"¿Llamando desde fuera de Canadá?",
+      o4intlBtn:"Encuentra números de contacto internacionales →",
       restart:"Iniciar una nueva solicitud",
     },
     fr:{
-      title:"Nous sommes désolés — votre date limite est passée",
-      body:"La date limite pour soumettre votre demande d'Examen des Risques Avant Renvoi (ERAR) était le {date}. Malheureusement, cette date étant passée, vous ne pouvez plus postuler par le processus standard.",
-      exceptional:"Vous pourriez encore avoir des options dans des circonstances exceptionnelles.",
-      option1:"Contacter le Centre de contact de l'IRCC",
-      option1sub:"Trouvez le numéro de téléphone sur le site web de l'IRCC et expliquez votre situation.",
-      option1link:"https://www.canada.ca/en/immigration-refugees-citizenship/corporate/contact-ircc.html",
-      option1btn:"Page de contact de l'IRCC →",
-      option2:"Soumettre une demande en ligne à l'IRCC",
-      option2sub:"Utilisez le formulaire web officiel de l'IRCC pour expliquer que votre date limite est passée et demander des conseils.",
-      option2btn:"Formulaire web de l'IRCC →",
-      option3:"Contacter votre agent d'immigration assigné",
-      option3sub:"Si vous savez qui est votre agent de l'ASFC, contactez-le directement dès que possible.",
-      urgent:"Agissez immédiatement — chaque jour compte.",
+      title:"Nous sommes désolés — la date limite de votre demande est passée",
+      body:"La date limite pour soumettre votre demande d'Examen des Risques Avant Renvoi (ERAR) était le {date}. Malheureusement, cette date étant maintenant passée, vous ne pouvez plus postuler par le biais du processus standard.",
+      note:"Des options pourraient encore être disponibles dans des circonstances exceptionnelles. Nous vous encourageons vivement à agir immédiatement — chaque jour compte.",
+      o1title:"Contactez l'agent qui vous a remis le formulaire PRRA, ou votre consultant en immigration",
+      o1body:"Communiquez directement avec l'agent de l'ASFC qui a émis votre notification PRRA, ou contactez votre avocat ou consultant en immigration si vous en avez un. Expliquez que votre date limite est passée et demandez quelles mesures peuvent être prises.",
+      o2title:"Envoyez un courriel au Bureau de réduction des arriérés (BRA) de l'IRCC",
+      o2body:"Le BRA traite les demandes PRRA et pourrait être en mesure de vous aider. Envoyez un courriel au bureau BRA de Vancouver à:",
+      o2include:"Incluez les éléments suivants dans votre courriel:",
+      o2items:[
+        "Votre nom complet, exactement tel qu'il figure sur vos documents officiels",
+        "Votre Identifiant unique de client (IUC) ou numéro d'identifiant client",
+        "Le numéro de dossier de votre demande dans l'objet du courriel",
+      ],
+      o2note:"Avant d'envoyer, remplacez INSERT APPLICATION FILE NUMBER HERE dans l'objet par votre vrai numéro de dossier.",
+      o2btn:"Ouvrir le brouillon du courriel →",
+      o3title:"Contactez l'IRCC en ligne ou par téléphone",
+      o3body:"Vous pouvez soumettre une demande en ligne à l'IRCC en expliquant votre situation, ou les appeler directement.",
+      o3webBtn:"Formulaire web en ligne de l'IRCC →",
+      o3phone:"Vous pouvez également appeler l'IRCC directement au:",
+      o3num:"1-888-242-2100",
+      o3hours:"Du lundi au vendredi, 8h00 – 16h00 (Canada seulement)",
+      o4title:"Ligne d'information générale — dernier recours",
+      o4body:"Pour des questions générales seulement, vous pouvez appeler le 1-800-O-Canada (1-800-622-6232). Veuillez noter que ce numéro est uniquement pour une utilisation au Canada.",
+      o4intl:"Vous appelez depuis l'extérieur du Canada?",
+      o4intlBtn:"Trouver les numéros de contact internationaux →",
       restart:"Commencer une nouvelle demande",
     },
   };
-  const m = msg[L] || msg.en;
+
+  const m = txt[L] || txt.en;
   const bodyText = m.body.replace("{date}", fmtDate(deadline));
 
-  const optStyle = {background:"var(--paper)",borderRadius:14,padding:"18px 20px",border:"1px solid var(--brd)",marginBottom:12};
-  const linkBtn  = {display:"inline-block",marginTop:10,background:"var(--navy)",color:"#fff",borderRadius:8,padding:"10px 18px",fontSize:13,fontWeight:700,textDecoration:"none",fontFamily:"inherit"};
+  const card  = {background:"var(--paper)",borderRadius:14,padding:"20px",border:"1px solid var(--brd)",marginBottom:12};
+  const badge = {display:"inline-block",background:"var(--navy)",color:"#fff",borderRadius:20,fontSize:11,fontWeight:700,padding:"3px 10px",marginBottom:10,letterSpacing:"1px",textTransform:"uppercase"};
+  const aBtn  = {display:"inline-block",marginTop:10,background:"var(--navy)",color:"#fff",borderRadius:8,padding:"10px 18px",fontSize:13,fontWeight:700,textDecoration:"none"};
+  const aLink = {display:"inline-block",marginTop:8,color:"var(--navy)",fontSize:13,fontWeight:600,textDecoration:"underline"};
 
   return (
-    <div style={{minHeight:"100vh",background:"var(--bg)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"flex-start",padding:"0 0 48px"}}>
+    <div style={{minHeight:"100vh",background:"var(--bg)",display:"flex",flexDirection:"column",alignItems:"center",padding:"0 0 48px"}}>
       <style>{CSS}</style>
-      {/* Header */}
-      <div style={{width:"100%",background:"linear-gradient(135deg,#7f1d1d,var(--red))",padding:"36px 20px 32px",textAlign:"center"}}>
+
+      <div style={{width:"100%",background:"linear-gradient(135deg,#7f1d1d,#b91c1c)",padding:"36px 20px 32px",textAlign:"center"}}>
         <div style={{fontSize:52,marginBottom:14}}>⏰</div>
-        <h1 style={{fontFamily:"Georgia,serif",color:"#fff",fontSize:"clamp(20px,4vw,26px)",lineHeight:1.3,marginBottom:12,maxWidth:560,margin:"0 auto 12px"}}>{m.title}</h1>
-        <div style={{background:"rgba(0,0,0,.25)",borderRadius:10,display:"inline-block",padding:"8px 20px",color:"#fff",fontSize:14,fontWeight:600,marginTop:10}}>
+        <h1 style={{fontFamily:"Georgia,serif",color:"#fff",fontSize:"clamp(19px,4vw,25px)",lineHeight:1.35,marginBottom:14,maxWidth:540,margin:"0 auto 14px"}}>{m.title}</h1>
+        <div style={{background:"rgba(0,0,0,.3)",borderRadius:10,display:"inline-block",padding:"8px 20px",color:"#fff",fontSize:14,fontWeight:700,marginTop:8}}>
           {T(UI.deadline,L)}: {fmtDate(deadline)}
         </div>
       </div>
 
-      {/* Body */}
-      <div style={{maxWidth:560,width:"100%",padding:"24px 16px"}}>
-        <p style={{fontSize:15,color:"var(--ink)",lineHeight:1.75,marginBottom:20,background:"var(--paper)",borderRadius:12,padding:"16px 18px",borderLeft:"4px solid var(--red)"}}>{bodyText}</p>
-
-        {/* Exceptional circumstances note */}
+      <div style={{maxWidth:560,width:"100%",padding:"22px 16px"}}>
+        <p style={{fontSize:14,color:"var(--ink)",lineHeight:1.75,marginBottom:14,background:"var(--paper)",borderRadius:12,padding:"16px 18px",borderLeft:"4px solid var(--red)"}}>{bodyText}</p>
         <div style={{background:"var(--amberp)",borderRadius:12,padding:"14px 18px",marginBottom:22,borderLeft:"4px solid var(--amber)"}}>
-          <p style={{fontSize:14,color:"var(--amber)",fontWeight:700,marginBottom:4}}>⚠️ {m.exceptional}</p>
-          <p style={{fontSize:13,color:"var(--ink2)",lineHeight:1.6,fontWeight:600}}>{m.urgent}</p>
+          <p style={{fontSize:14,color:"#92400e",fontWeight:700}}>⚠️ {m.note}</p>
         </div>
 
-        {/* Option 1 — IRCC Contact */}
-        <div style={optStyle}>
-          <div style={{fontSize:16,fontWeight:700,color:"var(--ink)",marginBottom:4}}>1. {m.option1}</div>
-          <p style={{fontSize:13,color:"var(--ink2)",lineHeight:1.6,marginBottom:6}}>{m.option1sub}</p>
-          <a href={m.option1link} target="_blank" rel="noopener noreferrer" style={linkBtn}>{m.option1btn}</a>
+        <div style={card}>
+          <div style={badge}>Option 1</div>
+          <h3 style={{fontSize:15,fontWeight:700,color:"var(--ink)",marginBottom:8,lineHeight:1.4}}>{m.o1title}</h3>
+          <p style={{fontSize:13,color:"var(--ink2)",lineHeight:1.7}}>{m.o1body}</p>
         </div>
 
-        {/* Option 2 — Web Form */}
-        <div style={optStyle}>
-          <div style={{fontSize:16,fontWeight:700,color:"var(--ink)",marginBottom:4}}>2. {m.option2}</div>
-          <p style={{fontSize:13,color:"var(--ink2)",lineHeight:1.6,marginBottom:6}}>{m.option2sub}</p>
-          <a href="https://www.canada.ca/en/immigration-refugees-citizenship/corporate/contact-ircc/web-form.html" target="_blank" rel="noopener noreferrer" style={linkBtn}>{m.option2btn}</a>
+        <div style={card}>
+          <div style={badge}>Option 2</div>
+          <h3 style={{fontSize:15,fontWeight:700,color:"var(--ink)",marginBottom:8,lineHeight:1.4}}>{m.o2title}</h3>
+          <p style={{fontSize:13,color:"var(--ink2)",lineHeight:1.7,marginBottom:10}}>{m.o2body}</p>
+          <div style={{background:"var(--navyl)",borderRadius:8,padding:"10px 14px",fontSize:14,fontWeight:700,color:"var(--navy)",marginBottom:12}}>vancouverbro@cic.gc.ca</div>
+          <p style={{fontSize:13,fontWeight:600,color:"var(--ink)",marginBottom:8}}>{m.o2include}</p>
+          <ul style={{paddingLeft:20,marginBottom:12}}>
+            {m.o2items.map((item,i)=>(
+              <li key={i} style={{fontSize:13,color:"var(--ink2)",lineHeight:1.7,marginBottom:4}}>{item}</li>
+            ))}
+          </ul>
+          <p style={{fontSize:12,color:"#92400e",fontWeight:600,background:"var(--amberp)",borderRadius:8,padding:"8px 12px",marginBottom:12}}>⚠️ {m.o2note}</p>
+          <a href={BRO_EMAIL} style={aBtn}>{m.o2btn}</a>
         </div>
 
-        {/* Option 3 — Immigration officer */}
-        <div style={optStyle}>
-          <div style={{fontSize:16,fontWeight:700,color:"var(--ink)",marginBottom:4}}>3. {m.option3}</div>
-          <p style={{fontSize:13,color:"var(--ink2)",lineHeight:1.6}}>{m.option3sub}</p>
+        <div style={card}>
+          <div style={badge}>Option 3</div>
+          <h3 style={{fontSize:15,fontWeight:700,color:"var(--ink)",marginBottom:8,lineHeight:1.4}}>{m.o3title}</h3>
+          <p style={{fontSize:13,color:"var(--ink2)",lineHeight:1.7,marginBottom:10}}>{m.o3body}</p>
+          <a href={IRCC_WEBFORM} target="_blank" rel="noopener noreferrer" style={aBtn}>{m.o3webBtn}</a>
+          <div style={{marginTop:16,paddingTop:14,borderTop:"1px solid var(--brd)"}}>
+            <p style={{fontSize:13,color:"var(--ink2)",marginBottom:6}}>{m.o3phone}</p>
+            <div style={{fontSize:20,fontWeight:700,color:"var(--navy)",marginBottom:4}}>{m.o3num}</div>
+            <p style={{fontSize:12,color:"var(--ink3)"}}>{m.o3hours}</p>
+          </div>
         </div>
 
-        <button onClick={onRestart} style={{background:"none",border:"1px solid var(--brd)",borderRadius:10,padding:"10px 20px",cursor:"pointer",color:"var(--ink3)",fontFamily:"inherit",fontSize:13,display:"block",margin:"24px auto 0"}}>{m.restart}</button>
+        <div style={{...card,borderColor:"#d1d5db",background:"var(--paper2)"}}>
+          <div style={{...badge,background:"var(--ink3)"}}>Option 4</div>
+          <h3 style={{fontSize:15,fontWeight:700,color:"var(--ink)",marginBottom:8,lineHeight:1.4}}>{m.o4title}</h3>
+          <p style={{fontSize:13,color:"var(--ink2)",lineHeight:1.7,marginBottom:8}}>{m.o4body}</p>
+          <div style={{fontSize:18,fontWeight:700,color:"var(--ink)",marginBottom:10}}>1-800-622-6232</div>
+          <p style={{fontSize:12,color:"var(--ink3)",marginBottom:4}}>{m.o4intl}</p>
+          <a href={INTL_PHONE} target="_blank" rel="noopener noreferrer" style={aLink}>{m.o4intlBtn}</a>
+        </div>
+
+        <button onClick={onRestart} style={{background:"none",border:"1px solid var(--brd)",borderRadius:10,padding:"10px 20px",cursor:"pointer",color:"var(--ink3)",fontFamily:"inherit",fontSize:13,display:"block",margin:"16px auto 0"}}>{m.restart}</button>
       </div>
     </div>
   );
